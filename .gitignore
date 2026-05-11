@@ -1,0 +1,4 @@
+/continuum-plugin-bookwarehouse-audio
+*.test
+*.out
+.envrc
