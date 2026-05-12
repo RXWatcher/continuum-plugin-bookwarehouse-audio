@@ -1,0 +1,133 @@
+package catalog_test
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/catalog"
+)
+
+func upstream(t *testing.T) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/books":
+			_, _ = w.Write([]byte(`{"items":[{"id":"a","title":"A","duration_seconds":100}],"total":1}`))
+		case "/api/v1/books/search":
+			_, _ = w.Write([]byte(`{"items":[{"id":"b","title":"B"}]}`))
+		case "/api/v1/books/a":
+			_, _ = w.Write([]byte(`{"id":"a","title":"A","files":[{"index":0,"file_path":"f.m4b","codec":"m4b"}]}`))
+		case "/api/v1/authors":
+			_, _ = w.Write([]byte(`{"items":[{"id":"a1","name":"Andy Weir","count":3}]}`))
+		case "/api/v1/series":
+			_, _ = w.Write([]byte(`{"items":[{"id":"s1","name":"Hyperion","count":4}]}`))
+		case "/api/v1/narrators":
+			_, _ = w.Write([]byte(`{"items":[{"id":"n1","name":"Ray Porter","count":2}]}`))
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+}
+
+func mountHandler(c *bookwarehouse.Client) http.Handler {
+	h := catalog.NewHandler(c)
+	r := chi.NewRouter()
+	r.Get("/catalog", h.List())
+	r.Get("/catalog/search", h.Search())
+	r.Get("/catalog/{id}", h.Detail())
+	r.Get("/browse/authors", h.BrowseAuthors())
+	r.Get("/browse/series", h.BrowseSeries())
+	r.Get("/browse/narrators", h.BrowseNarrators())
+	r.Get("/cover/{book_id}/{size}", h.Cover())
+	return r
+}
+
+func TestCatalogList_Returns200WithItems(t *testing.T) {
+	up := upstream(t)
+	defer up.Close()
+	c := bookwarehouse.NewClient(up.URL, "k")
+	srv := mountHandler(c)
+
+	r := httptest.NewRequest("GET", "/catalog?limit=10", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Fatalf("code = %d", w.Code)
+	}
+	var env catalog.PageEnvelope[catalog.AudiobookSummary]
+	_ = json.Unmarshal(w.Body.Bytes(), &env)
+	if len(env.Items) != 1 || env.Items[0].ID != "a" {
+		t.Errorf("env = %+v", env)
+	}
+}
+
+func TestCatalogSearch_Returns200WithItems(t *testing.T) {
+	up := upstream(t)
+	defer up.Close()
+	c := bookwarehouse.NewClient(up.URL, "k")
+	srv := mountHandler(c)
+
+	r := httptest.NewRequest("GET", "/catalog/search?q=x", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, r)
+	var env catalog.PageEnvelope[catalog.AudiobookSummary]
+	_ = json.Unmarshal(w.Body.Bytes(), &env)
+	if len(env.Items) != 1 || env.Items[0].ID != "b" {
+		t.Errorf("env = %+v", env)
+	}
+}
+
+func TestCatalogDetail_Returns200(t *testing.T) {
+	up := upstream(t)
+	defer up.Close()
+	c := bookwarehouse.NewClient(up.URL, "k")
+	srv := mountHandler(c)
+
+	r := httptest.NewRequest("GET", "/catalog/a", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Fatalf("code = %d body = %s", w.Code, w.Body.String())
+	}
+	var d catalog.AudiobookDetail
+	_ = json.Unmarshal(w.Body.Bytes(), &d)
+	if d.ID != "a" || len(d.Files) != 1 {
+		t.Errorf("d = %+v", d)
+	}
+}
+
+func TestBrowseAuthors(t *testing.T) {
+	up := upstream(t)
+	defer up.Close()
+	c := bookwarehouse.NewClient(up.URL, "k")
+	srv := mountHandler(c)
+
+	r := httptest.NewRequest("GET", "/browse/authors", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, r)
+	var env catalog.PageEnvelope[catalog.AuthorSummary]
+	_ = json.Unmarshal(w.Body.Bytes(), &env)
+	if env.Items[0].Name != "Andy Weir" {
+		t.Errorf("env = %+v", env)
+	}
+}
+
+func TestCoverRedirect(t *testing.T) {
+	c := bookwarehouse.NewClient("https://upstream.example", "k")
+	srv := mountHandler(c)
+
+	r := httptest.NewRequest("GET", "/cover/bw-42/large", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, r)
+	if w.Code != http.StatusFound {
+		t.Fatalf("code = %d", w.Code)
+	}
+	if loc := w.Header().Get("Location"); loc != "https://upstream.example/api/v1/books/bw-42/cover/large" {
+		t.Errorf("Location = %q", loc)
+	}
+}
