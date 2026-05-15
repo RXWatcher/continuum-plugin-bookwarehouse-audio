@@ -43,6 +43,7 @@ type Chapter struct {
 type File struct {
 	Index           int    `json:"index"`
 	Filename        string `json:"file_path"`
+	StorageKey      string `json:"storage_key,omitempty"`
 	Codec           string `json:"codec"`
 	SizeBytes       int64  `json:"file_size"`
 	DurationSeconds int    `json:"duration_seconds"`

@@ -33,7 +33,8 @@ func (s *Server) mountStream(r chi.Router) {
 	if !ok || cli == nil {
 		return
 	}
-	h := stream.NewHandler(cli)
+	cfg, _ := s.deps.StreamConfig.(stream.Config)
+	h := stream.NewHandler(cli, cfg)
 	r.Get("/stream/{book_id}/{file_idx}", h.Stream())
 }
 

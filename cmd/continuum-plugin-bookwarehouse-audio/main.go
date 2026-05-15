@@ -28,6 +28,7 @@ import (
 	pluginrt "github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/runtime"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/server"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/store"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/stream"
 )
 
 //go:embed manifest.json
@@ -83,6 +84,10 @@ func main() {
 		srv := server.New(server.Deps{
 			BookwarehouseClient: bwClient,
 			Store:               s,
+			StreamConfig: stream.Config{
+				DirectFileAccess: cfg.DirectFileAccess,
+				PathRemappings:   toStreamRemappings(cfg.PathRemappings),
+			},
 		})
 		httpSrv.SetHandler(srv.Handler())
 
@@ -126,6 +131,17 @@ func main() {
 			EventConsumer: cons,
 		},
 	})
+}
+
+func toStreamRemappings(in []pluginrt.PathRemapping) []stream.PathRemapping {
+	out := make([]stream.PathRemapping, 0, len(in))
+	for _, item := range in {
+		out = append(out, stream.PathRemapping{
+			SourcePath: item.SourcePath,
+			TargetPath: item.TargetPath,
+		})
+	}
+	return out
 }
 
 func loadManifest() (*pluginv1.PluginManifest, error) {

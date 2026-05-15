@@ -21,6 +21,15 @@ type Config struct {
 	APIKey                string `json:"api_key"`
 	DefaultCoverSize      string `json:"default_cover_size"`
 	RequestQualityProfile string `json:"request_quality_profile"`
+	DirectFileAccess      bool   `json:"direct_file_access"`
+	PathRemappings        []PathRemapping
+}
+
+// PathRemapping converts paths returned by Book Warehouse into local mount
+// paths available to this plugin process.
+type PathRemapping struct {
+	SourcePath string `json:"source_path"`
+	TargetPath string `json:"target_path"`
 }
 
 // Configured returns true when all required fields are populated.
@@ -66,6 +75,10 @@ func (s *Server) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*
 			cfg.DefaultCoverSize = stringFromValue(m["value"], firstString(m))
 		case "request_quality_profile":
 			cfg.RequestQualityProfile = stringFromValue(m["value"], firstString(m))
+		case "direct_file_access":
+			cfg.DirectFileAccess = boolFromValue(m["value"])
+		case "path_remappings":
+			cfg.PathRemappings = pathRemappingsFromValue(m["value"])
 		}
 	}
 	if cfg.DatabaseURL == "" {
@@ -111,6 +124,32 @@ func firstString(m map[string]any) any {
 		}
 	}
 	return nil
+}
+
+func boolFromValue(v any) bool {
+	b, _ := v.(bool)
+	return b
+}
+
+func pathRemappingsFromValue(v any) []PathRemapping {
+	items, ok := v.([]any)
+	if !ok {
+		return nil
+	}
+	out := make([]PathRemapping, 0, len(items))
+	for _, item := range items {
+		m, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		source := stringFromValue(m["source_path"], m["sourcePath"])
+		target := stringFromValue(m["target_path"], m["targetPath"])
+		if source == "" || target == "" {
+			continue
+		}
+		out = append(out, PathRemapping{SourcePath: source, TargetPath: target})
+	}
+	return out
 }
 
 // MarshalConfig is exported for tests that need to verify the config decode.
