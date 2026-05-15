@@ -38,6 +38,7 @@ func mountHandler(c *bookwarehouse.Client) http.Handler {
 	h := catalog.NewHandler(c)
 	r := chi.NewRouter()
 	r.Get("/catalog", h.List())
+	r.Get("/catalog/libraries", h.Libraries())
 	r.Get("/catalog/search", h.Search())
 	r.Get("/catalog/{id}", h.Detail())
 	r.Get("/browse/authors", h.BrowseAuthors())
@@ -45,6 +46,23 @@ func mountHandler(c *bookwarehouse.Client) http.Handler {
 	r.Get("/browse/narrators", h.BrowseNarrators())
 	r.Get("/cover/{book_id}/{size}", h.Cover())
 	return r
+}
+
+func TestCatalogLibraries_ReturnsDefaultLibrary(t *testing.T) {
+	c := bookwarehouse.NewClient("https://upstream.example", "k")
+	srv := mountHandler(c)
+
+	r := httptest.NewRequest("GET", "/catalog/libraries", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Fatalf("code = %d", w.Code)
+	}
+	var env catalog.PageEnvelope[catalog.LibraryInfo]
+	_ = json.Unmarshal(w.Body.Bytes(), &env)
+	if len(env.Items) != 1 || env.Items[0].Name != "Book Warehouse Audiobooks" {
+		t.Errorf("env = %+v", env)
+	}
 }
 
 func TestCatalogList_Returns200WithItems(t *testing.T) {

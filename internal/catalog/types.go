@@ -80,6 +80,14 @@ type PageEnvelope[T any] struct {
 	Total      int    `json:"total,omitempty"`
 }
 
+// LibraryInfo is returned by /catalog/libraries so presentation plugins can
+// bind user-facing shelves to this backend without hard-coding provider rules.
+type LibraryInfo struct {
+	ID        int64  `json:"id"`
+	Name      string `json:"name"`
+	MediaType string `json:"media_type,omitempty"`
+}
+
 // AuthorSummary / SeriesSummary / NarratorSummary mirror the browse list items.
 type AuthorSummary struct {
 	ID    string `json:"id"`

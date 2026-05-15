@@ -92,11 +92,12 @@ func (c *Client) PostJSON(ctx context.Context, path string, body []byte) ([]byte
 // ListParams is the query shape for ListBooks. When Query is non-empty, the
 // request is dispatched to /api/v1/books/search instead.
 type ListParams struct {
-	Cursor string
-	Limit  int
-	Sort   string // added | title | duration | rating
-	Order  string // asc | desc
-	Query  string
+	Cursor    string
+	Limit     int
+	Sort      string // added | title | duration | rating
+	Order     string // asc | desc
+	Query     string
+	LibraryID int64
 }
 
 // ListBooks fetches a page of books from the upstream.
@@ -113,6 +114,9 @@ func (c *Client) ListBooks(ctx context.Context, p ListParams) (Paged[Book], erro
 	}
 	if p.Order != "" {
 		q.Set("order", p.Order)
+	}
+	if p.LibraryID > 0 {
+		q.Set("library_id", strconv.FormatInt(p.LibraryID, 10))
 	}
 	path := "/api/v1/books"
 	if p.Query != "" {
@@ -155,6 +159,9 @@ func listBrowse[T any](ctx context.Context, c *Client, path string, p ListParams
 	}
 	if p.Limit > 0 {
 		q.Set("limit", strconv.Itoa(p.Limit))
+	}
+	if p.LibraryID > 0 {
+		q.Set("library_id", strconv.FormatInt(p.LibraryID, 10))
 	}
 	full := path
 	if e := q.Encode(); e != "" {

@@ -1,8 +1,9 @@
 {
   "plugin_id": "continuum.bookwarehouse-audio",
   "version": "0.1.0",
-  "checksum": "__CHECKSUM__",
+  "checksum": "f78a9dd01e49124b2090c32f38afc92a65d9a3526409b35ced2e4a2e080bb3c0",
   "continuum_api_version": "v1",
+  "supported_platforms": [{"os": "linux", "arch": "amd64"}],
   "capabilities": [
     {
       "type": "http_routes.v1",

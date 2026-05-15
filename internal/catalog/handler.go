@@ -18,13 +18,31 @@ type Handler struct {
 // NewHandler constructs a Handler bound to a typed upstream client.
 func NewHandler(c *bookwarehouse.Client) *Handler { return &Handler{client: c} }
 
+// Libraries handles GET /api/v1/catalog/libraries. Book Warehouse currently
+// exposes one audiobook catalog, but publishing it through the same contract as
+// multi-root backends lets the Audiobooks portal configure it explicitly.
+func (h *Handler) Libraries() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, struct {
+			Items []LibraryInfo `json:"items"`
+		}{
+			Items: []LibraryInfo{{
+				ID:        1,
+				Name:      "Book Warehouse Audiobooks",
+				MediaType: "audiobook",
+			}},
+		})
+	}
+}
+
 // List handles GET /api/v1/catalog
 func (h *Handler) List() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		p := bookwarehouse.ListParams{
-			Cursor: r.URL.Query().Get("cursor"),
-			Sort:   r.URL.Query().Get("sort"),
-			Order:  r.URL.Query().Get("order"),
+			Cursor:    r.URL.Query().Get("cursor"),
+			Sort:      r.URL.Query().Get("sort"),
+			Order:     r.URL.Query().Get("order"),
+			LibraryID: parseLibraryID(r),
 		}
 		if l := r.URL.Query().Get("limit"); l != "" {
 			if n, err := strconv.Atoi(l); err == nil {
@@ -44,7 +62,10 @@ func (h *Handler) List() http.HandlerFunc {
 func (h *Handler) Search() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query().Get("q")
-		out, err := h.client.ListBooks(r.Context(), bookwarehouse.ListParams{Query: q})
+		out, err := h.client.ListBooks(r.Context(), bookwarehouse.ListParams{
+			Query:     q,
+			LibraryID: parseLibraryID(r),
+		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
@@ -142,7 +163,8 @@ func (h *Handler) Cover() http.HandlerFunc {
 
 func readListParams(r *http.Request) bookwarehouse.ListParams {
 	p := bookwarehouse.ListParams{
-		Cursor: r.URL.Query().Get("cursor"),
+		Cursor:    r.URL.Query().Get("cursor"),
+		LibraryID: parseLibraryID(r),
 	}
 	if l := r.URL.Query().Get("limit"); l != "" {
 		if n, err := strconv.Atoi(l); err == nil {
@@ -150,6 +172,18 @@ func readListParams(r *http.Request) bookwarehouse.ListParams {
 		}
 	}
 	return p
+}
+
+func parseLibraryID(r *http.Request) int64 {
+	raw := r.URL.Query().Get("library_id")
+	if raw == "" {
+		return 0
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id < 0 {
+		return 0
+	}
+	return id
 }
 
 func writeBookEnvelope(w http.ResponseWriter, p bookwarehouse.Paged[bookwarehouse.Book]) {

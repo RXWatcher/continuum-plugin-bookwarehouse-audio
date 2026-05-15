@@ -18,6 +18,7 @@ func (s *Server) mountCatalog(r chi.Router) {
 	}
 	h := catalog.NewHandler(cli)
 	r.Get("/catalog", h.List())
+	r.Get("/catalog/libraries", h.Libraries())
 	r.Get("/catalog/search", h.Search())
 	r.Get("/catalog/{id}", h.Detail())
 	r.Get("/browse/authors", h.BrowseAuthors())
