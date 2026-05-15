@@ -6,6 +6,7 @@ Thin adapter exposing an external BookWarehouse instance to the [`continuum.audi
 
 | Capability | Notes |
 |---|---|
+| `audiobook_backend.v1` (`default`) | Advertises this plugin as a selectable audiobook source for the Audiobooks portal. |
 | `http_routes.v1` (`backend`) | `/api/v1/*` — catalog, cover art, streaming (302 redirect to upstream), request forwarding. |
 | `event_consumer.v1` (`request_handler`) | Subscribes to `plugin.continuum.audiobooks.request_submitted`; forwards each new request to BookWarehouse monitoring. |
 

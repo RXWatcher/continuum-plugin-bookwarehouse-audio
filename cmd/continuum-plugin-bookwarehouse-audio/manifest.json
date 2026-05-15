@@ -11,6 +11,12 @@
       "description": "Catalog, streaming, and request forwarding to a BookWarehouse instance."
     },
     {
+      "type": "audiobook_backend.v1",
+      "id": "default",
+      "display_name": "Book Warehouse Audio",
+      "description": "Catalog, cover, streaming, and request source for the Audiobooks portal."
+    },
+    {
       "type": "event_consumer.v1",
       "id": "request_handler",
       "display_name": "Request handler",
