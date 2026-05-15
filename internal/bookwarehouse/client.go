@@ -17,6 +17,12 @@ import (
 
 const defaultTimeout = 15 * time.Second
 
+// maxResponseBytes caps the body the client will read from the upstream
+// BookWarehouse service. JSON list/detail responses are well under this in
+// normal operation; the cap defends against memory exhaustion if the
+// upstream returns a runaway body (broken, compromised, hostile).
+const maxResponseBytes = 10 << 20 // 10 MiB
+
 // Client is the typed BookWarehouse REST client.
 type Client struct {
 	baseURL string
@@ -49,7 +55,10 @@ func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
 		return nil, fmt.Errorf("do: %w", err)
 	}
 	defer resp.Body.Close()
-	body, _ := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("upstream %d: %s", resp.StatusCode, string(body))
 	}
@@ -70,7 +79,10 @@ func (c *Client) PostJSON(ctx context.Context, path string, body []byte) ([]byte
 		return nil, fmt.Errorf("do: %w", err)
 	}
 	defer resp.Body.Close()
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
 	if resp.StatusCode >= 400 {
 		return nil, fmt.Errorf("upstream %d: %s", resp.StatusCode, string(respBody))
 	}

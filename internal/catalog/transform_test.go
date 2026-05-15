@@ -26,9 +26,41 @@ func TestToSummary_HappyPath(t *testing.T) {
 		Authors: []string{"Ayn Rand"}, Narrators: []string{"Scott Brick"},
 		DurationSeconds: 234567, CoverURL: "https://upstream/c/1",
 		HasCover: true, Year: 1957, Rating: 4.2,
+		AuthorRefs: []catalog.AuthorRef{{ID: "ayn-rand", Name: "Ayn Rand"}},
+		CoverPath:  "https://upstream/c/1",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("ToSummary: got %+v want %+v", got, want)
+	}
+}
+
+func TestToSummary_DerivesSeriesRef(t *testing.T) {
+	in := bookwarehouse.Book{
+		ID: "bw-3", Title: "Foundation",
+		Authors: []string{"Isaac Asimov"},
+		Series:  "The Foundation Series", SeriesIndex: 1.5,
+	}
+	got := catalog.ToSummary(in)
+	if len(got.SeriesRefs) != 1 ||
+		got.SeriesRefs[0].ID != "the-foundation-series" ||
+		got.SeriesRefs[0].Sequence != "1.5" {
+		t.Errorf("series_refs = %+v", got.SeriesRefs)
+	}
+}
+
+func TestSlugify(t *testing.T) {
+	cases := map[string]string{
+		"Andy Weir":        "andy-weir",
+		"  Ayn  Rand  ":    "ayn-rand",
+		"J.R.R. Tolkien":   "j-r-r-tolkien",
+		"Iain M. Banks":    "iain-m-banks",
+		"José Saramago":    "josé-saramago",
+		"":                 "",
+	}
+	for in, want := range cases {
+		if got := catalog.Slugify(in); got != want {
+			t.Errorf("Slugify(%q) = %q want %q", in, got, want)
+		}
 	}
 }
 

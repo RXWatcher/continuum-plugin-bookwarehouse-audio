@@ -3,6 +3,22 @@
 // "Response shapes" section verbatim.
 package catalog
 
+// AuthorRef carries a stable ID + display name for an author. The ID is
+// derived as a slug-from-name when the upstream doesn't expose one (the
+// upstream BookWarehouse exposes slug-IDs from its /audiobooks/authors
+// endpoint that match this slug convention).
+type AuthorRef struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// SeriesRef is the same idea for series; sequence may be empty.
+type SeriesRef struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Sequence string `json:"sequence,omitempty"`
+}
+
 // AudiobookSummary is the short shape returned by /catalog list endpoints.
 type AudiobookSummary struct {
 	ID              string   `json:"id"`
@@ -14,6 +30,18 @@ type AudiobookSummary struct {
 	HasCover        bool     `json:"has_cover"`
 	Year            int      `json:"year,omitempty"`
 	Rating          float64  `json:"rating,omitempty"`
+	// AuthorRefs / SeriesRefs supply stable IDs and display names. They run
+	// alongside the legacy Authors/Series string fields so older consumers
+	// keep working; the audiobookshelf-shaped client uses the *Refs.
+	AuthorRefs []AuthorRef `json:"author_refs,omitempty"`
+	SeriesRefs []SeriesRef `json:"series_refs,omitempty"`
+	// CoverPath is the host-relative cover URL the ABS spec expects in
+	// media.coverPath. We populate it with CoverURL so clients have a
+	// non-empty path string (ABS dislikes empty coverPath).
+	CoverPath string `json:"cover_path,omitempty"`
+	// AddedAtMs / UpdatedAtMs are Unix milliseconds (0 when unknown).
+	AddedAtMs   int64 `json:"added_at_ms,omitempty"`
+	UpdatedAtMs int64 `json:"updated_at_ms,omitempty"`
 }
 
 // AudiobookFile describes one streamable audio file within a book.

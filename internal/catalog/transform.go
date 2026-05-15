@@ -1,14 +1,16 @@
 package catalog
 
 import (
+	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
 )
 
 // ToSummary converts upstream Book into the contract summary shape.
 func ToSummary(b bookwarehouse.Book) AudiobookSummary {
-	return AudiobookSummary{
+	out := AudiobookSummary{
 		ID:              b.ID,
 		Title:           b.Title,
 		Authors:         b.Authors,
@@ -18,7 +20,58 @@ func ToSummary(b bookwarehouse.Book) AudiobookSummary {
 		HasCover:        b.HasCover,
 		Year:            b.Year,
 		Rating:          b.Rating,
+		CoverPath:       b.CoverURL,
+		AddedAtMs:       b.AddedAtMs,
+		UpdatedAtMs:     b.UpdatedAtMs,
 	}
+	if len(b.Authors) > 0 {
+		out.AuthorRefs = make([]AuthorRef, 0, len(b.Authors))
+		for _, name := range b.Authors {
+			name = strings.TrimSpace(name)
+			if name == "" {
+				continue
+			}
+			out.AuthorRefs = append(out.AuthorRefs, AuthorRef{ID: Slugify(name), Name: name})
+		}
+	}
+	if strings.TrimSpace(b.Series) != "" {
+		seq := ""
+		if b.SeriesIndex != 0 {
+			seq = formatSequence(b.SeriesIndex)
+		}
+		out.SeriesRefs = []SeriesRef{{ID: Slugify(b.Series), Name: b.Series, Sequence: seq}}
+	}
+	return out
+}
+
+// Slugify lowercases name and replaces runs of non-alphanumerics with '-'.
+// Matches the BookWarehouse upstream's author/series ID convention so a
+// derived ID can round-trip to a real /audiobooks/authors/{id} lookup.
+func Slugify(name string) string {
+	var b strings.Builder
+	prevDash := true
+	for _, r := range strings.ToLower(name) {
+		switch {
+		case unicode.IsLetter(r) || unicode.IsDigit(r):
+			b.WriteRune(r)
+			prevDash = false
+		default:
+			if !prevDash && b.Len() > 0 {
+				b.WriteRune('-')
+				prevDash = true
+			}
+		}
+	}
+	return strings.TrimRight(b.String(), "-")
+}
+
+// formatSequence renders a series_index (float) as a short string, dropping
+// trailing zeros: 1.0 → "1", 1.5 → "1.5".
+func formatSequence(v float64) string {
+	if v == float64(int64(v)) {
+		return strconv.FormatInt(int64(v), 10)
+	}
+	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
 // ToDetail extends ToSummary with description, chapters, files, etc.

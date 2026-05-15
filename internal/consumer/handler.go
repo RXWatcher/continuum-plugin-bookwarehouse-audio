@@ -103,12 +103,15 @@ func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequ
 		QualityProfile: d.QualityProfile,
 	})
 	if err != nil {
-		_ = d.Store.UpsertForwardedRequest(ctx, store.ForwardedRequest{
+		if uerr := d.Store.UpsertForwardedRequest(ctx, store.ForwardedRequest{
 			RequestID: requestID,
 			Status:    "failed",
 			ErrorText: err.Error(),
 			UpdatedAt: time.Now(),
-		})
+		}); uerr != nil {
+			h.logger.Warn("upsert forwarded_request (after upstream err)",
+				"request_id", requestID, "upstream_err", err, "db_err", uerr)
+		}
 		if d.Events != nil {
 			d.Events.Publish(ctx, "request_failed", map[string]any{
 				"request_id": requestID,
@@ -118,12 +121,19 @@ func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequ
 		return &pluginv1.HandleEventResponse{}, nil
 	}
 
-	_ = d.Store.UpsertForwardedRequest(ctx, store.ForwardedRequest{
+	if uerr := d.Store.UpsertForwardedRequest(ctx, store.ForwardedRequest{
 		RequestID:  requestID,
 		ExternalID: resp.ID,
 		Status:     "acknowledged",
 		UpdatedAt:  time.Now(),
-	})
+	}); uerr != nil {
+		// Logged but not fatal: the upstream already accepted the request, so
+		// reporting failure to the host would cause the event to retry and
+		// duplicate-add upstream. The reconciler will heal the DB row on
+		// the next tick.
+		h.logger.Warn("upsert forwarded_request (after acknowledged)",
+			"request_id", requestID, "external_id", resp.ID, "db_err", uerr)
+	}
 	if d.Events != nil {
 		d.Events.Publish(ctx, "request_acknowledged", map[string]any{
 			"request_id":  requestID,

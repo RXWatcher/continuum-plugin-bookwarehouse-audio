@@ -18,6 +18,11 @@ type Book struct {
 	Series          string   `json:"series,omitempty"`
 	SeriesIndex     float64  `json:"series_index,omitempty"`
 	Genres          []string `json:"genres,omitempty"`
+	// AddedAtMs and UpdatedAtMs are Unix milliseconds; when the upstream
+	// surfaces created_at / updated_at as RFC3339 strings, callers parse
+	// those out-of-band and populate these fields.
+	AddedAtMs   int64 `json:"added_at_ms,omitempty"`
+	UpdatedAtMs int64 `json:"updated_at_ms,omitempty"`
 }
 
 // BookDetail extends Book with chapters and files.

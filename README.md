@@ -1,10 +1,23 @@
 # continuum-plugin-bookwarehouse-audio
 
-Continuum plugin: thin adapter exposing an external BookWarehouse instance to
-the `continuum.audiobooks` portal via the `audiobook_backend.v1` capability.
+Thin adapter exposing an external BookWarehouse instance to the [`continuum.audiobooks`](../continuum-plugin-audiobooks/) portal as an audiobook source. Calls upstream live on every request — no local catalog mirror, no SPA, no per-user state.
 
-See the design spec at
-`/opt/worktrees/continuum-rh/docs/superpowers/specs/2026-05-11-audiobooks-portal-and-bookwarehouse-backend-design.md`.
+## Capabilities
+
+| Capability | Notes |
+|---|---|
+| `http_routes.v1` (`backend`) | `/api/v1/*` — catalog, cover art, streaming (302 redirect to upstream), request forwarding. |
+| `event_consumer.v1` (`request_handler`) | Subscribes to `plugin.continuum.audiobooks.request_submitted`; forwards each new request to BookWarehouse monitoring. |
+
+## Configuration
+
+| Key | Required | Description |
+|---|---|---|
+| `database_url` | yes | DSN for the `bookwarehouse_audio` schema. |
+| `base_url` | yes | Upstream BookWarehouse base URL, no trailing slash. |
+| `api_key` | yes | `X-API-Key` for upstream calls. |
+| `default_cover_size` | no | One of `small \| medium \| large \| original` (default `large`). |
+| `request_quality_profile` | no | BookWarehouse-side quality tier forwarded with new monitoring requests. |
 
 ## Layout
 
@@ -25,43 +38,41 @@ internal/
   testutil/         Postgres testcontainers helper
 ```
 
-## Build
+## Dependencies
+
+- Postgres role + `bookwarehouse_audio` schema (used for tracking forwarded requests).
+- An external BookWarehouse instance with API access.
+
+## Install
+
+```sql
+CREATE ROLE plugin_bookwarehouse_audio LOGIN PASSWORD '<chosen>';
+CREATE SCHEMA bookwarehouse_audio AUTHORIZATION plugin_bookwarehouse_audio;
+```
+
+After configuring, sanity-check reachability:
+
+```bash
+curl -H "Authorization: Bearer <user-bearer>" \
+  https://<continuum>/api/v1/plugins/continuum.bookwarehouse-audio/api/v1/health
+```
+
+Then select this plugin as the active backend from the audiobooks portal `/admin/settings`.
+
+## What it explicitly doesn't do
+
+- No SPA, no `navigable` route.
+- No user state (progress, bookmarks, collections, sessions) — that's the portal's job.
+- No ABS protocol surface — also the portal's job.
+- No catalog mirror; every request hits upstream.
+
+## Build & test
 
 ```bash
 make build
 make test
 ```
 
-## Configuration
+## Status
 
-Global config keys (all required at install time):
-
-- `database_url`            — DSN for the `bookwarehouse_audio` schema.
-- `base_url`                — Upstream BookWarehouse base URL.
-- `api_key`                 — Upstream BookWarehouse API key (secret).
-- `default_cover_size`      — Optional default cover size (e.g. `large`).
-- `request_quality_profile` — Optional quality profile name forwarded with
-                              new monitoring requests.
-
-## Admin runbook
-
-1. Provision the postgres role + schema:
-   ```sql
-   CREATE ROLE plugin_bookwarehouse_audio LOGIN PASSWORD '<…>';
-   CREATE SCHEMA bookwarehouse_audio AUTHORIZATION plugin_bookwarehouse_audio;
-   ```
-2. Install the plugin and configure the five globals above.
-3. Verify reachability:
-   ```bash
-   curl -H "Authorization: Bearer <user-bearer>" \
-        https://<continuum>/api/v1/plugins/continuum.bookwarehouse-audio/api/v1/health
-   ```
-4. The portal (`continuum.audiobooks`) picks this plugin via its
-   `/admin/settings` page.
-
-## What it doesn't do
-
-- No SPA. No `navigable` route.
-- No user state (progress, bookmarks, collections, sessions).
-- No ABS protocol surface — that's in the portal.
-- No catalog mirror; calls upstream live on every request.
+v0.1.0. Functional thin adapter.
