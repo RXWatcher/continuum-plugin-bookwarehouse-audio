@@ -28,10 +28,10 @@ type Eventer interface {
 // Deps is the runtime state the consumer needs. Resolved per-event so the
 // store can be wired after Configure runs.
 type Deps struct {
-	Store           *store.Store
-	Client          *bookwarehouse.Client
-	Events          Eventer
-	QualityProfile  string
+	Store          *store.Store
+	Client         *bookwarehouse.Client
+	Events         Eventer
+	QualityProfile string
 }
 
 // Handler implements pluginv1.EventConsumerServer.
@@ -66,12 +66,12 @@ func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequ
 	p := req.GetPayload().AsMap()
 
 	// Filter on target_plugin_id.
-	target, _ := p["target_plugin_id"].(string)
+	target := targetPluginIDFromPayload(p)
 	if target != "" && target != PluginID {
 		return &pluginv1.HandleEventResponse{}, nil
 	}
 
-	requestID, _ := p["request_id"].(string)
+	requestID := requestIDFromPayload(p)
 	if requestID == "" {
 		h.logger.Warn("request_submitted missing request_id")
 		return &pluginv1.HandleEventResponse{}, nil
@@ -114,8 +114,10 @@ func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequ
 		}
 		if d.Events != nil {
 			d.Events.Publish(ctx, "request_failed", map[string]any{
-				"request_id": requestID,
-				"reason":     err.Error(),
+				"request_id":         requestID,
+				"requestId":          requestID,
+				"provider_plugin_id": PluginID,
+				"reason":             err.Error(),
 			})
 		}
 		return &pluginv1.HandleEventResponse{}, nil
@@ -136,9 +138,28 @@ func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequ
 	}
 	if d.Events != nil {
 		d.Events.Publish(ctx, "request_acknowledged", map[string]any{
-			"request_id":  requestID,
-			"external_id": resp.ID,
+			"request_id":         requestID,
+			"requestId":          requestID,
+			"external_id":        resp.ID,
+			"provider_plugin_id": PluginID,
 		})
 	}
 	return &pluginv1.HandleEventResponse{}, nil
+}
+
+func targetPluginIDFromPayload(p map[string]any) string {
+	for _, key := range []string{"target_plugin_id", "target_provider_plugin_id", "provider_plugin_id"} {
+		if v, _ := p[key].(string); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+func requestIDFromPayload(p map[string]any) string {
+	if id, _ := p["request_id"].(string); id != "" {
+		return id
+	}
+	id, _ := p["requestId"].(string)
+	return id
 }
