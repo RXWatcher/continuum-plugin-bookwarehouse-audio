@@ -114,6 +114,17 @@ func findFile(files []bookwarehouse.File, idx int) (bookwarehouse.File, bool) {
 			return file, true
 		}
 	}
+	// No explicit-index match. Only fall back to positional indexing when the
+	// upstream response carries no indices at all (every File.Index is the
+	// zero value) — otherwise a request for a non-existent index would
+	// silently serve a *different* track from this same book. When indices
+	// are populated but none match, report not-found so the caller defers to
+	// the upstream redirect, which interprets the index authoritatively.
+	for _, file := range files {
+		if file.Index != 0 {
+			return bookwarehouse.File{}, false
+		}
+	}
 	if idx >= 0 && idx < len(files) {
 		return files[idx], true
 	}
@@ -145,9 +156,35 @@ func remapPath(source string, remappings []PathRemapping) (string, bool) {
 		if localPath != targetPrefix && !strings.HasPrefix(localPath, targetPrefix+string(filepath.Separator)) {
 			continue
 		}
-		return localPath, true
+		// Lexical containment above blocks "../" traversal, but a symlink
+		// planted inside the target mount (or an attacker-influenced upstream
+		// source path) can still resolve outside the admin-configured root.
+		// Resolve symlinks on both sides and re-verify containment against
+		// the real paths before trusting localPath.
+		if resolved, ok := resolveWithin(targetPrefix, localPath); ok {
+			return resolved, true
+		}
 	}
 	return "", false
+}
+
+// resolveWithin resolves symlinks in candidate and confirms the real path is
+// still inside the real targetPrefix. It returns false when either path cannot
+// be resolved (e.g. the file does not exist — the caller then falls back to
+// the upstream redirect) or when the resolved path escapes the root.
+func resolveWithin(targetPrefix, candidate string) (string, bool) {
+	realTarget, err := filepath.EvalSymlinks(targetPrefix)
+	if err != nil {
+		return "", false
+	}
+	realPath, err := filepath.EvalSymlinks(candidate)
+	if err != nil {
+		return "", false
+	}
+	if realPath != realTarget && !strings.HasPrefix(realPath, realTarget+string(filepath.Separator)) {
+		return "", false
+	}
+	return realPath, true
 }
 
 func safeFilename(name string) string {

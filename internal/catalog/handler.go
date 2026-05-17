@@ -18,6 +18,28 @@ type Handler struct {
 // NewHandler constructs a Handler bound to a typed upstream client.
 func NewHandler(c *bookwarehouse.Client) *Handler { return &Handler{client: c} }
 
+// maxCatalogLimit caps the page size forwarded upstream. The limit is
+// attacker-controlled query input; without a ceiling a client asking for
+// limit=999999999 turns into a giant upstream fetch. 0 (absent/invalid/<=0)
+// falls back to the upstream default.
+const maxCatalogLimit = 200
+
+// parseLimit reads, validates and clamps the ?limit query parameter.
+func parseLimit(r *http.Request) int {
+	l := r.URL.Query().Get("limit")
+	if l == "" {
+		return 0
+	}
+	n, err := strconv.Atoi(l)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	if n > maxCatalogLimit {
+		return maxCatalogLimit
+	}
+	return n
+}
+
 // Libraries handles GET /api/v1/catalog/libraries. Book Warehouse currently
 // exposes one audiobook catalog, but publishing it through the same contract as
 // multi-root backends lets the Audiobooks portal configure it explicitly.
@@ -44,11 +66,7 @@ func (h *Handler) List() http.HandlerFunc {
 			Order:     r.URL.Query().Get("order"),
 			LibraryID: parseLibraryID(r),
 		}
-		if l := r.URL.Query().Get("limit"); l != "" {
-			if n, err := strconv.Atoi(l); err == nil {
-				p.Limit = n
-			}
-		}
+		p.Limit = parseLimit(r)
 		out, err := h.client.ListBooks(r.Context(), p)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
@@ -68,11 +86,7 @@ func (h *Handler) Search() http.HandlerFunc {
 			Order:     r.URL.Query().Get("order"),
 			LibraryID: parseLibraryID(r),
 		}
-		if l := r.URL.Query().Get("limit"); l != "" {
-			if n, err := strconv.Atoi(l); err == nil {
-				p.Limit = n
-			}
-		}
+		p.Limit = parseLimit(r)
 		out, err := h.client.ListBooks(r.Context(), p)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
@@ -174,11 +188,7 @@ func readListParams(r *http.Request) bookwarehouse.ListParams {
 		Cursor:    r.URL.Query().Get("cursor"),
 		LibraryID: parseLibraryID(r),
 	}
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if n, err := strconv.Atoi(l); err == nil {
-			p.Limit = n
-		}
-	}
+	p.Limit = parseLimit(r)
 	return p
 }
 
