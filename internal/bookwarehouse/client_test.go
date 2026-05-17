@@ -42,12 +42,15 @@ func TestClient_CoverStreamURL_EscapeID(t *testing.T) {
 	if strings.Contains(cover, "a/../b?x") {
 		t.Errorf("CoverURL did not escape id: %s", cover)
 	}
-	if !strings.Contains(cover, "/api/v1/books/a%2F..%2Fb%3Fx/cover/large") {
+	if !strings.Contains(cover, "/api/v1/audiobooks/a%2F..%2Fb%3Fx/cover?api_key=k") {
 		t.Errorf("CoverURL = %s", cover)
 	}
-	st := c.StreamURL("a/../b?x", 0)
+	st := c.StreamURL("a/../b?x", 3)
 	if strings.Contains(st, "a/../b?x") {
 		t.Errorf("StreamURL did not escape id: %s", st)
+	}
+	if !strings.Contains(st, "/api/v1/audiobooks/a%2F..%2Fb%3Fx/stream?file_id=3&api_key=k") {
+		t.Errorf("StreamURL = %s", st)
 	}
 }
 
@@ -85,7 +88,7 @@ func TestClient_TrimsTrailingSlash(t *testing.T) {
 
 func TestClient_ListBooks(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/books" || r.URL.Query().Get("limit") != "20" {
+		if r.URL.Path != "/api/v1/audiobooks" || r.URL.Query().Get("limit") != "20" {
 			t.Errorf("path/query = %s ?%s", r.URL.Path, r.URL.RawQuery)
 		}
 		_, _ = w.Write([]byte(`{"items":[{"id":"a","title":"A"}],"total":1}`))
@@ -103,7 +106,7 @@ func TestClient_ListBooks(t *testing.T) {
 
 func TestClient_ListBooks_Search(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/books/search" || r.URL.Query().Get("q") != "andy" {
+		if r.URL.Path != "/api/v1/audiobooks/search" || r.URL.Query().Get("q") != "andy" {
 			t.Errorf("path/query = %s ?%s", r.URL.Path, r.URL.RawQuery)
 		}
 		_, _ = w.Write([]byte(`{"items":[{"id":"b","title":"B"}]}`))
@@ -121,7 +124,7 @@ func TestClient_ListBooks_Search(t *testing.T) {
 
 func TestClient_GetBook(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/books/bw-42" {
+		if r.URL.Path != "/api/v1/audiobooks/bw-42" {
 			t.Errorf("path = %s", r.URL.Path)
 		}
 		_, _ = w.Write([]byte(`{"id":"bw-42","title":"X","files":[{"index":0,"file_path":"x.m4b","codec":"m4b","file_size":1000}]}`))
@@ -176,7 +179,7 @@ func TestClient_GetMonitoring_EscapesID(t *testing.T) {
 
 func TestClient_ListAuthors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/authors" {
+		if r.URL.Path != "/api/v1/audiobooks/authors" {
 			t.Errorf("path = %s", r.URL.Path)
 		}
 		_, _ = w.Write([]byte(`{"items":[{"id":"a1","name":"Andy Weir","count":3}]}`))

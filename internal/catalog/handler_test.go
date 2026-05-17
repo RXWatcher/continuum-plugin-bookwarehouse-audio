@@ -17,17 +17,17 @@ func upstream(t *testing.T) *httptest.Server {
 	t.Helper()
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case "/api/v1/books":
+		case "/api/v1/audiobooks":
 			_, _ = w.Write([]byte(`{"items":[{"id":"a","title":"A","duration_seconds":100}],"total":1}`))
-		case "/api/v1/books/search":
+		case "/api/v1/audiobooks/search":
 			_, _ = w.Write([]byte(`{"items":[{"id":"b","title":"B"}]}`))
-		case "/api/v1/books/a":
+		case "/api/v1/audiobooks/a":
 			_, _ = w.Write([]byte(`{"id":"a","title":"A","files":[{"index":0,"file_path":"f.m4b","codec":"m4b"}]}`))
-		case "/api/v1/authors":
+		case "/api/v1/audiobooks/authors":
 			_, _ = w.Write([]byte(`{"items":[{"id":"a1","name":"Andy Weir","count":3}]}`))
-		case "/api/v1/series":
+		case "/api/v1/audiobooks/series":
 			_, _ = w.Write([]byte(`{"items":[{"id":"s1","name":"Hyperion","count":4}]}`))
-		case "/api/v1/narrators":
+		case "/api/v1/audiobooks/narrators":
 			_, _ = w.Write([]byte(`{"items":[{"id":"n1","name":"Ray Porter","count":2}]}`))
 		default:
 			w.WriteHeader(404)
@@ -106,7 +106,7 @@ func TestCatalogSearch_Returns200WithItems(t *testing.T) {
 func TestCatalogSearch_PassesPaginationParams(t *testing.T) {
 	var gotQuery string
 	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/v1/books/search" {
+		if r.URL.Path == "/api/v1/audiobooks/search" {
 			gotQuery = r.URL.RawQuery
 			_, _ = w.Write([]byte(`{"items":[{"id":"b","title":"B"}]}`))
 			return
@@ -174,7 +174,7 @@ func TestCoverRedirect(t *testing.T) {
 	if w.Code != http.StatusFound {
 		t.Fatalf("code = %d", w.Code)
 	}
-	if loc := w.Header().Get("Location"); loc != "https://upstream.example/api/v1/books/bw-42/cover/large" {
+	if loc := w.Header().Get("Location"); loc != "https://upstream.example/api/v1/audiobooks/bw-42/cover?api_key=k" {
 		t.Errorf("Location = %q", loc)
 	}
 }

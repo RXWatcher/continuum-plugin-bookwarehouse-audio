@@ -130,10 +130,10 @@ func (c *Client) ListBooks(ctx context.Context, p ListParams) (Paged[Book], erro
 	if p.LibraryID > 0 {
 		q.Set("library_id", strconv.FormatInt(p.LibraryID, 10))
 	}
-	path := "/api/v1/books"
+	path := "/api/v1/audiobooks"
 	if p.Query != "" {
 		q.Set("q", p.Query)
-		path = "/api/v1/books/search"
+		path = "/api/v1/audiobooks/search"
 	}
 	full := path
 	if e := q.Encode(); e != "" {
@@ -152,7 +152,7 @@ func (c *Client) ListBooks(ctx context.Context, p ListParams) (Paged[Book], erro
 
 // GetBook fetches one book's full detail.
 func (c *Client) GetBook(ctx context.Context, id string) (BookDetail, error) {
-	body, err := c.Get(ctx, "/api/v1/books/"+url.PathEscape(id))
+	body, err := c.Get(ctx, "/api/v1/audiobooks/"+url.PathEscape(id))
 	if err != nil {
 		return BookDetail{}, err
 	}
@@ -192,26 +192,39 @@ func listBrowse[T any](ctx context.Context, c *Client, path string, p ListParams
 
 // ListAuthors / ListSeries / ListNarrators fetch the corresponding browse pages.
 func (c *Client) ListAuthors(ctx context.Context, p ListParams) (Paged[Author], error) {
-	return listBrowse[Author](ctx, c, "/api/v1/authors", p)
+	return listBrowse[Author](ctx, c, "/api/v1/audiobooks/authors", p)
 }
 
 func (c *Client) ListSeries(ctx context.Context, p ListParams) (Paged[Series], error) {
-	return listBrowse[Series](ctx, c, "/api/v1/series", p)
+	return listBrowse[Series](ctx, c, "/api/v1/audiobooks/series", p)
 }
 
 func (c *Client) ListNarrators(ctx context.Context, p ListParams) (Paged[Narrator], error) {
-	return listBrowse[Narrator](ctx, c, "/api/v1/narrators", p)
+	return listBrowse[Narrator](ctx, c, "/api/v1/audiobooks/narrators", p)
 }
 
-// StreamURL returns the upstream URL for streaming a given file of an audiobook.
+// StreamURL returns the upstream audiobook stream URL. The browser is
+// redirected here, so the API key is passed as a query param (the upstream
+// accepts api_key as well as the X-API-Key header) — without it the
+// authenticated endpoint would 401.
 func (c *Client) StreamURL(bookID string, fileIdx int) string {
-	return fmt.Sprintf("%s/api/v1/books/%s/files/%d/stream", c.baseURL, url.PathEscape(bookID), fileIdx)
+	return fmt.Sprintf("%s/api/v1/audiobooks/%s/stream?file_id=%d%s",
+		c.baseURL, url.PathEscape(bookID), fileIdx, c.apiKeyQuery("&"))
 }
 
-// CoverURL returns the upstream URL for a cover at a given size.
-func (c *Client) CoverURL(bookID, size string) string {
-	if size == "" {
-		size = "large"
+// CoverURL returns the upstream audiobook cover URL. The upstream cover
+// endpoint takes no size and requires auth; the key is passed as a query
+// param for the same redirect reason as StreamURL.
+func (c *Client) CoverURL(bookID, _ string) string {
+	return fmt.Sprintf("%s/api/v1/audiobooks/%s/cover%s",
+		c.baseURL, url.PathEscape(bookID), c.apiKeyQuery("?"))
+}
+
+// apiKeyQuery returns "<sep>api_key=<escaped>" when an API key is configured,
+// else "". sep is "?" or "&" depending on whether the URL already has a query.
+func (c *Client) apiKeyQuery(sep string) string {
+	if c.apiKey == "" {
+		return ""
 	}
-	return fmt.Sprintf("%s/api/v1/books/%s/cover/%s", c.baseURL, url.PathEscape(bookID), url.PathEscape(size))
+	return sep + "api_key=" + url.QueryEscape(c.apiKey)
 }

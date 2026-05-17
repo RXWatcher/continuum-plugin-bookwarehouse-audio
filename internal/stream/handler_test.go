@@ -27,7 +27,7 @@ func TestStream_Redirects302ToUpstream(t *testing.T) {
 		t.Fatalf("code = %d", w.Code)
 	}
 	loc := w.Header().Get("Location")
-	want := "https://upstream.example/api/v1/books/bw-7/files/3/stream"
+	want := "https://upstream.example/api/v1/audiobooks/bw-7/stream?file_id=3&api_key=k"
 	if loc != want {
 		t.Errorf("Location = %q, want %q", loc, want)
 	}
@@ -59,7 +59,7 @@ func TestStream_DirectFileAccessServesRange(t *testing.T) {
 	}
 
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/v1/books/bw-7" {
+		if r.URL.Path != "/api/v1/audiobooks/bw-7" {
 			http.NotFound(w, r)
 			return
 		}
