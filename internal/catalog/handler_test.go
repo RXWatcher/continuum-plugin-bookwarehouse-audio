@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -97,6 +98,34 @@ func TestCatalogSearch_Returns200WithItems(t *testing.T) {
 	_ = json.Unmarshal(w.Body.Bytes(), &env)
 	if len(env.Items) != 1 || env.Items[0].ID != "b" {
 		t.Errorf("env = %+v", env)
+	}
+}
+
+// Search forwarded only ?q=, dropping cursor/limit/sort/order, so it always
+// returned upstream page 1 and infinite scroll never advanced.
+func TestCatalogSearch_PassesPaginationParams(t *testing.T) {
+	var gotQuery string
+	up := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/books/search" {
+			gotQuery = r.URL.RawQuery
+			_, _ = w.Write([]byte(`{"items":[{"id":"b","title":"B"}]}`))
+			return
+		}
+		w.WriteHeader(404)
+	}))
+	defer up.Close()
+	c := bookwarehouse.NewClient(up.URL, "k")
+	srv := mountHandler(c)
+	r := httptest.NewRequest("GET", "/catalog/search?q=x&cursor=c2&limit=5&sort=title&order=desc", nil)
+	w := httptest.NewRecorder()
+	srv.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Fatalf("code=%d body=%s", w.Code, w.Body.String())
+	}
+	for _, want := range []string{"q=x", "cursor=c2", "limit=5", "sort=title", "order=desc"} {
+		if !strings.Contains(gotQuery, want) {
+			t.Errorf("upstream query %q missing %q", gotQuery, want)
+		}
 	}
 }
 

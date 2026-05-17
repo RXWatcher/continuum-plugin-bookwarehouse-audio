@@ -5,10 +5,51 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
 )
+
+// A broken/hostile upstream can return a huge error body. It must not be
+// inlined whole into the error string (it propagates into logs / responses).
+func TestClient_TruncatesErrorBody(t *testing.T) {
+	big := strings.Repeat("x", 60000)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(500)
+		_, _ = w.Write([]byte(big))
+	}))
+	defer srv.Close()
+	c := bookwarehouse.NewClient(srv.URL, "k")
+	_, err := c.GetBook(context.Background(), "x")
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if len(err.Error()) > 1024 {
+		t.Errorf("error not truncated: %d bytes", len(err.Error()))
+	}
+	if !strings.Contains(err.Error(), "500") {
+		t.Errorf("error should mention status: %q", err.Error())
+	}
+}
+
+// book_id flows from a URL param into the redirect target. A value with
+// path/query metacharacters must be percent-escaped so it can't rewrite the
+// upstream path (open redirect / path injection).
+func TestClient_CoverStreamURL_EscapeID(t *testing.T) {
+	c := bookwarehouse.NewClient("https://up.example", "k")
+	cover := c.CoverURL("a/../b?x", "large")
+	if strings.Contains(cover, "a/../b?x") {
+		t.Errorf("CoverURL did not escape id: %s", cover)
+	}
+	if !strings.Contains(cover, "/api/v1/books/a%2F..%2Fb%3Fx/cover/large") {
+		t.Errorf("CoverURL = %s", cover)
+	}
+	st := c.StreamURL("a/../b?x", 0)
+	if strings.Contains(st, "a/../b?x") {
+		t.Errorf("StreamURL did not escape id: %s", st)
+	}
+}
 
 func TestClient_SendsAPIKeyHeader(t *testing.T) {
 	var gotKey string

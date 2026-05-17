@@ -23,6 +23,18 @@ const defaultTimeout = 15 * time.Second
 // upstream returns a runaway body (broken, compromised, hostile).
 const maxResponseBytes = 10 << 20 // 10 MiB
 
+// errBodySnippet caps how much of an upstream error body is inlined into an
+// error string. The body can be up to maxResponseBytes and the error
+// propagates into logs and responses.
+const errBodySnippet = 512
+
+func truncForError(b []byte) string {
+	if len(b) <= errBodySnippet {
+		return string(b)
+	}
+	return string(b[:errBodySnippet]) + "…(truncated)"
+}
+
 // Client is the typed BookWarehouse REST client.
 type Client struct {
 	baseURL string
@@ -60,7 +72,7 @@ func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
 		return nil, fmt.Errorf("read body: %w", err)
 	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("upstream %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("upstream %d: %s", resp.StatusCode, truncForError(body))
 	}
 	return body, nil
 }
@@ -84,7 +96,7 @@ func (c *Client) PostJSON(ctx context.Context, path string, body []byte) ([]byte
 		return nil, fmt.Errorf("read body: %w", err)
 	}
 	if resp.StatusCode >= 400 {
-		return nil, fmt.Errorf("upstream %d: %s", resp.StatusCode, string(respBody))
+		return nil, fmt.Errorf("upstream %d: %s", resp.StatusCode, truncForError(respBody))
 	}
 	return respBody, nil
 }
@@ -193,7 +205,7 @@ func (c *Client) ListNarrators(ctx context.Context, p ListParams) (Paged[Narrato
 
 // StreamURL returns the upstream URL for streaming a given file of an audiobook.
 func (c *Client) StreamURL(bookID string, fileIdx int) string {
-	return fmt.Sprintf("%s/api/v1/books/%s/files/%d/stream", c.baseURL, bookID, fileIdx)
+	return fmt.Sprintf("%s/api/v1/books/%s/files/%d/stream", c.baseURL, url.PathEscape(bookID), fileIdx)
 }
 
 // CoverURL returns the upstream URL for a cover at a given size.
@@ -201,5 +213,5 @@ func (c *Client) CoverURL(bookID, size string) string {
 	if size == "" {
 		size = "large"
 	}
-	return fmt.Sprintf("%s/api/v1/books/%s/cover/%s", c.baseURL, bookID, size)
+	return fmt.Sprintf("%s/api/v1/books/%s/cover/%s", c.baseURL, url.PathEscape(bookID), url.PathEscape(size))
 }

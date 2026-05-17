@@ -61,11 +61,19 @@ func (h *Handler) List() http.HandlerFunc {
 // Search handles GET /api/v1/catalog/search?q=
 func (h *Handler) Search() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		q := r.URL.Query().Get("q")
-		out, err := h.client.ListBooks(r.Context(), bookwarehouse.ListParams{
-			Query:     q,
+		p := bookwarehouse.ListParams{
+			Query:     r.URL.Query().Get("q"),
+			Cursor:    r.URL.Query().Get("cursor"),
+			Sort:      r.URL.Query().Get("sort"),
+			Order:     r.URL.Query().Get("order"),
 			LibraryID: parseLibraryID(r),
-		})
+		}
+		if l := r.URL.Query().Get("limit"); l != "" {
+			if n, err := strconv.Atoi(l); err == nil {
+				p.Limit = n
+			}
+		}
+		out, err := h.client.ListBooks(r.Context(), p)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
