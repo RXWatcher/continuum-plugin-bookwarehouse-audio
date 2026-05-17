@@ -4,30 +4,23 @@
 package main
 
 import (
-	"context"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
 	"fmt"
 	"os"
 	goruntime "runtime"
-	"sync/atomic"
 
 	"github.com/hashicorp/go-hclog"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	pluginv1 "github.com/ContinuumApp/continuum-plugin-sdk/pkg/pluginproto/continuum/plugin/v1"
 	publicmanifest "github.com/ContinuumApp/continuum-plugin-sdk/pkg/pluginsdk/manifest"
 	sdkruntime "github.com/ContinuumApp/continuum-plugin-sdk/pkg/pluginsdk/runtime"
 
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/consumer"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/event"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/httproutes"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/migrate"
 	pluginrt "github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/runtime"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/server"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/store"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/stream"
 )
 
@@ -45,90 +38,28 @@ func main() {
 
 	httpSrv := httproutes.NewServer()
 
-	// State holders updated atomically when Configure runs.
-	var (
-		poolPtr   atomic.Pointer[pgxpool.Pool]
-		storePtr  atomic.Pointer[store.Store]
-		clientPtr atomic.Pointer[bookwarehouse.Client]
-		cfgPtr    atomic.Pointer[pluginrt.Config]
-		eventsPtr atomic.Pointer[event.Publisher]
-	)
-
+	// This plugin is a pure audiobook library/catalog/stream source: no
+	// state, no DB, no request forwarding. Configure just (re)builds the
+	// upstream client and HTTP handler.
 	rt := pluginrt.New(manifest, func(cfg pluginrt.Config) error {
-		ctx := context.Background()
-
-		// Explicit MaxConns cap. The pgx default scales with GOMAXPROCS and
-		// can be as low as 4; the catalog API + reconciler + consumer mix
-		// can starve under that. 16 is generous without saturating a
-		// shared Postgres. Operators override via DSN (?pool_max_conns=N).
-		pcfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
-		if err != nil {
-			return fmt.Errorf("parse db: %w", err)
-		}
-		if pcfg.MaxConns < 16 {
-			pcfg.MaxConns = 16
-		}
-		p, err := pgxpool.NewWithConfig(ctx, pcfg)
-		if err != nil {
-			return fmt.Errorf("pgxpool: %w", err)
-		}
-		if err := migrate.Run(ctx, cfg.DatabaseURL); err != nil {
-			p.Close()
-			return fmt.Errorf("migrate: %w", err)
-		}
-
-		s := store.New(p)
 		bwClient := bookwarehouse.NewClient(cfg.BaseURL, cfg.APIKey)
-		ev := event.New(sdkruntime.Host(), logger)
-
 		srv := server.New(server.Deps{
 			BookwarehouseClient: bwClient,
-			Store:               s,
 			StreamConfig: stream.Config{
 				DirectFileAccess: cfg.DirectFileAccess,
 				PathRemappings:   toStreamRemappings(cfg.PathRemappings),
 			},
 		})
 		httpSrv.SetHandler(srv.Handler())
-
-		storePtr.Store(s)
-		clientPtr.Store(bwClient)
-		eventsPtr.Store(ev)
-		cfgPtr.Store(&cfg)
-
-		if old := poolPtr.Swap(p); old != nil {
-			old.Close()
-		}
 		logger.Info("configured", "base_url", cfg.BaseURL)
 		return nil
 	})
 
-	cons := consumer.New(func() *consumer.Deps {
-		s := storePtr.Load()
-		c := clientPtr.Load()
-		ev := eventsPtr.Load()
-		cfg := cfgPtr.Load()
-		if s == nil || c == nil {
-			return nil
-		}
-		profile := ""
-		if cfg != nil {
-			profile = cfg.RequestQualityProfile
-		}
-		return &consumer.Deps{
-			Store:          s,
-			Client:         c,
-			Events:         ev,
-			QualityProfile: profile,
-		}
-	}, logger)
-
 	sdkruntime.Serve(sdkruntime.ServeConfig{
 		Logger: logger,
 		Servers: sdkruntime.CapabilityServers{
-			Runtime:       rt,
-			HttpRoutes:    httpSrv,
-			EventConsumer: cons,
+			Runtime:    rt,
+			HttpRoutes: httpSrv,
 		},
 	})
 }

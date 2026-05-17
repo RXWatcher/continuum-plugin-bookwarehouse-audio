@@ -9,40 +9,19 @@
       "type": "http_routes.v1",
       "id": "backend",
       "display_name": "BookWarehouse audio backend",
-      "description": "Catalog, streaming, and request forwarding to a BookWarehouse instance."
+      "description": "Catalog, cover, and streaming for a BookWarehouse instance."
     },
     {
       "type": "audiobook_backend.v1",
       "id": "default",
       "display_name": "Book Warehouse Audio",
-      "description": "Catalog, cover, streaming, and request source for the Audiobooks portal."
-    },
-    {
-      "type": "event_consumer.v1",
-      "id": "request_handler",
-      "display_name": "Request handler",
-      "description": "Forwards audiobook request_submitted events to BookWarehouse monitoring.",
-      "subscriptions": [
-        "plugin.continuum.audiobooks.request_submitted"
-      ]
+      "description": "Catalog, cover, and streaming source for the Audiobooks portal."
     }
   ],
   "http_routes": [
     {"id": "api", "method": "*", "path": "/api/v1/*", "access": "authenticated"}
   ],
   "global_config_schema": [
-    {
-      "key": "database_url",
-      "title": "Postgres connection string",
-      "description": "DSN for the dedicated bookwarehouse_audio schema (e.g. postgres://plugin_bookwarehouse_audio:...@host:5432/continuum?search_path=bookwarehouse_audio&sslmode=disable).",
-      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}},\"required\":[\"value\"]}",
-      "required": true,
-      "admin_form": {
-        "fields": [
-          {"key": "value", "label": "Connection URL", "control": "ADMIN_FORM_CONTROL_PASSWORD", "required": true, "secret": true}
-        ]
-      }
-    },
     {
       "key": "base_url",
       "title": "BookWarehouse base URL",
@@ -75,17 +54,6 @@
       "admin_form": {
         "fields": [
           {"key": "value", "label": "Cover size", "control": "ADMIN_FORM_CONTROL_TEXT"}
-        ]
-      }
-    },
-    {
-      "key": "request_quality_profile",
-      "title": "Request quality profile",
-      "description": "BookWarehouse-side quality tier for new requests; leave blank for default.",
-      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
-      "admin_form": {
-        "fields": [
-          {"key": "value", "label": "Profile", "control": "ADMIN_FORM_CONTROL_TEXT"}
         ]
       }
     },

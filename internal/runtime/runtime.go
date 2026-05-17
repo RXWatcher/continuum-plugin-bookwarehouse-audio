@@ -16,13 +16,11 @@ import (
 
 // Config is the parsed plugin global config.
 type Config struct {
-	DatabaseURL           string `json:"database_url"`
-	BaseURL               string `json:"base_url"`
-	APIKey                string `json:"api_key"`
-	DefaultCoverSize      string `json:"default_cover_size"`
-	RequestQualityProfile string `json:"request_quality_profile"`
-	DirectFileAccess      bool   `json:"direct_file_access"`
-	PathRemappings        []PathRemapping
+	BaseURL          string `json:"base_url"`
+	APIKey           string `json:"api_key"`
+	DefaultCoverSize string `json:"default_cover_size"`
+	DirectFileAccess bool   `json:"direct_file_access"`
+	PathRemappings   []PathRemapping
 }
 
 // PathRemapping converts paths returned by Book Warehouse into local mount
@@ -34,7 +32,7 @@ type PathRemapping struct {
 
 // Configured returns true when all required fields are populated.
 func (c Config) Configured() bool {
-	return c.BaseURL != "" && c.APIKey != "" && c.DatabaseURL != ""
+	return c.BaseURL != "" && c.APIKey != ""
 }
 
 // Server implements the plugin's Runtime service.
@@ -65,24 +63,17 @@ func (s *Server) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*
 		}
 		m := v.AsMap()
 		switch e.GetKey() {
-		case "database_url":
-			cfg.DatabaseURL = stringFromValue(m["value"], firstString(m))
 		case "base_url":
 			cfg.BaseURL = stringFromValue(m["value"], firstString(m))
 		case "api_key":
 			cfg.APIKey = stringFromValue(m["value"], firstString(m))
 		case "default_cover_size":
 			cfg.DefaultCoverSize = stringFromValue(m["value"], firstString(m))
-		case "request_quality_profile":
-			cfg.RequestQualityProfile = stringFromValue(m["value"], firstString(m))
 		case "direct_file_access":
 			cfg.DirectFileAccess = boolFromValue(m["value"])
 		case "path_remappings":
 			cfg.PathRemappings = pathRemappingsFromValue(m["value"])
 		}
-	}
-	if cfg.DatabaseURL == "" {
-		return nil, fmt.Errorf("database_url is required")
 	}
 	if cfg.BaseURL == "" {
 		return nil, fmt.Errorf("base_url is required")

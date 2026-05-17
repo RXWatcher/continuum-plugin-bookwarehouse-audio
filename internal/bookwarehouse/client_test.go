@@ -140,43 +140,6 @@ func TestClient_GetBook(t *testing.T) {
 	}
 }
 
-func TestClient_AddMonitoring(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "POST" || r.URL.Path != "/api/v1/monitoring/add" {
-			t.Errorf("%s %s", r.Method, r.URL.Path)
-		}
-		_, _ = w.Write([]byte(`{"id":"mon-99","status":"queued"}`))
-	}))
-	defer srv.Close()
-	c := bookwarehouse.NewClient(srv.URL, "k")
-	out, err := c.AddMonitoring(context.Background(), bookwarehouse.MonitoringRequest{Title: "X"})
-	if err != nil {
-		t.Fatalf("AddMonitoring: %v", err)
-	}
-	if out.ID != "mon-99" {
-		t.Errorf("got %+v", out)
-	}
-}
-
-// externalID reaches GetMonitoring from the /api/v1/requests/{external_id}
-// URL param. A value with path/query metacharacters must be percent-escaped
-// so it can't redirect the upstream request (SSRF / path traversal).
-func TestClient_GetMonitoring_EscapesID(t *testing.T) {
-	var gotPath, gotQuery string
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
-		_, _ = w.Write([]byte(`{"id":"x","status":"queued"}`))
-	}))
-	defer srv.Close()
-	c := bookwarehouse.NewClient(srv.URL, "k")
-	if _, err := c.GetMonitoring(context.Background(), "a?b"); err != nil {
-		t.Fatalf("GetMonitoring: %v", err)
-	}
-	if gotPath != "/api/v1/monitoring/a?b" || gotQuery != "" {
-		t.Errorf("upstream path=%q query=%q (externalID not escaped)", gotPath, gotQuery)
-	}
-}
-
 func TestClient_ListAuthors(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/v1/audiobooks/authors" {

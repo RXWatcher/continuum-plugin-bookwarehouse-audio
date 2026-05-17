@@ -15,16 +15,12 @@ import (
 type Deps struct {
 	// Optional dependencies — handlers check for nil before use.
 	BookwarehouseClient BookwarehouseClient
-	Store               StoreLike
 	StreamConfig        StreamConfig
 }
 
 // BookwarehouseClient is the subset of bookwarehouse.Client the handlers use.
 // Defined as an interface so tests can substitute a fake.
 type BookwarehouseClient interface{}
-
-// StoreLike narrows internal/store.Store for the same reason.
-type StoreLike interface{}
 
 // StreamConfig narrows stream.Config without importing the stream package into
 // this root server file.
@@ -46,7 +42,6 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/health", s.handleHealth)
 		s.mountCatalog(r)
 		s.mountStream(r)
-		s.mountRequests(r)
 	})
 	return r
 }
