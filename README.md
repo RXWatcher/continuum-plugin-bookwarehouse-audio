@@ -8,6 +8,10 @@ cover, stream, and request-monitoring behavior through Continuum's
 Use this plugin when BookWarehouse already owns your audiobook library and
 Continuum should present that library through the Audiobooks portal.
 
+## Detailed Operations Docs
+
+- [Setup, debugging, and communication flows](docs/setup-debug-flows.md)
+
 ## Features
 
 - Catalog, search, detail, and cover routes for `continuum.audiobooks`.
