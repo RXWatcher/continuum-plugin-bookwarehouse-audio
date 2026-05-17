@@ -5,6 +5,7 @@ package consumer
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/hashicorp/go-hclog"
@@ -51,12 +52,8 @@ func New(depsFn func() *Deps, logger hclog.Logger) *Handler {
 
 // HandleEvent dispatches one host event by name.
 func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequest) (*pluginv1.HandleEventResponse, error) {
-	d := h.depsFn()
-	if d == nil || d.Store == nil || d.Client == nil {
-		// Plugin not fully configured; ignore — the portal will retry via
-		// reconciler.
-		return &pluginv1.HandleEventResponse{}, nil
-	}
+	// Foreign / malformed events are not ours: ack (no error) and drop so the
+	// host does not redeliver them forever. These checks need no deps.
 	if req.GetEventName() != "plugin.continuum.audiobooks.request_submitted" {
 		return &pluginv1.HandleEventResponse{}, nil
 	}
@@ -64,15 +61,24 @@ func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequ
 		return &pluginv1.HandleEventResponse{}, nil
 	}
 	p := req.GetPayload().AsMap()
-
-	// Filter on target_plugin_id.
-	target := targetPluginIDFromPayload(p)
-	if target != "" && target != PluginID {
+	if target := targetPluginIDFromPayload(p); target != "" && target != PluginID {
 		return &pluginv1.HandleEventResponse{}, nil
+	}
+
+	// This event IS ours. If the plugin is not configured yet, NACK so the
+	// host redelivers once Configure has run. This plugin has no reconciler /
+	// scheduled task, so acking-and-dropping here would lose the request
+	// permanently (the old "the portal will retry via reconciler" comment was
+	// false — no such reconciler exists).
+	d := h.depsFn()
+	if d == nil || d.Store == nil || d.Client == nil {
+		return nil, fmt.Errorf("plugin not configured yet")
 	}
 
 	requestID := requestIDFromPayload(p)
 	if requestID == "" {
+		// Malformed payload — a permanent client error; ack (nacking would
+		// poison-loop on the same bad event forever).
 		h.logger.Warn("request_submitted missing request_id")
 		return &pluginv1.HandleEventResponse{}, nil
 	}
@@ -80,19 +86,22 @@ func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequ
 	author, _ := p["author"].(string)
 	isbn, _ := p["isbn"].(string)
 	if title == "" {
+		// Permanent client error; ack.
 		h.logger.Warn("request_submitted missing title", "request_id", requestID)
 		return &pluginv1.HandleEventResponse{}, nil
 	}
 
-	// Persist initial state.
+	// Must persist before forwarding upstream: if this row is lost nothing
+	// ever reconciles it (no reconciler) and the request is permanently lost.
+	// Nack instead of starting untracked upstream work; the terminal guard in
+	// UpsertForwardedRequest makes the inevitable redelivery idempotent.
 	now := time.Now()
 	if err := d.Store.UpsertForwardedRequest(ctx, store.ForwardedRequest{
 		RequestID: requestID,
 		Status:    "submitted",
 		UpdatedAt: now,
 	}); err != nil {
-		h.logger.Warn("upsert forwarded_request", "err", err)
-		return &pluginv1.HandleEventResponse{}, nil
+		return nil, fmt.Errorf("persist submitted %s: %w", requestID, err)
 	}
 
 	// Forward to upstream.
@@ -109,8 +118,10 @@ func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequ
 			ErrorText: err.Error(),
 			UpdatedAt: time.Now(),
 		}); uerr != nil {
-			h.logger.Warn("upsert forwarded_request (after upstream err)",
-				"request_id", requestID, "upstream_err", err, "db_err", uerr)
+			// Couldn't even record the failure — nack so it's retried rather
+			// than left stuck non-terminal with no way to recover (no
+			// reconciler exists in this plugin).
+			return nil, fmt.Errorf("persist failed %s: %w (upstream: %v)", requestID, uerr, err)
 		}
 		if d.Events != nil {
 			d.Events.Publish(ctx, "request_failed", map[string]any{
@@ -129,12 +140,13 @@ func (h *Handler) HandleEvent(ctx context.Context, req *pluginv1.HandleEventRequ
 		Status:     "acknowledged",
 		UpdatedAt:  time.Now(),
 	}); uerr != nil {
-		// Logged but not fatal: the upstream already accepted the request, so
-		// reporting failure to the host would cause the event to retry and
-		// duplicate-add upstream. The reconciler will heal the DB row on
-		// the next tick.
-		h.logger.Warn("upsert forwarded_request (after acknowledged)",
-			"request_id", requestID, "external_id", resp.ID, "db_err", uerr)
+		// Must persist the external_id: this plugin has no reconciler, so a
+		// row stuck at "submitted" with no external_id is never recovered and
+		// the request hangs forever (the snapshot endpoint looks the row up
+		// by external_id and would 404). Nack; the terminal guard makes
+		// redelivery idempotent. Re-adding the same request upstream is the
+		// accepted tradeoff vs. a permanently lost request.
+		return nil, fmt.Errorf("persist acknowledged %s: %w", requestID, uerr)
 	}
 	if d.Events != nil {
 		d.Events.Publish(ctx, "request_acknowledged", map[string]any{
