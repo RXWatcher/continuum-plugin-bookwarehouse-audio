@@ -43,3 +43,28 @@ func TestAdminPageIncludesStreamDiagnosticsGuidance(t *testing.T) {
 		t.Fatalf("admin page should preserve theme")
 	}
 }
+
+func TestAdminPageIncludesStatelessOperatorConsole(t *testing.T) {
+	h := server.New(server.Deps{})
+	r := httptest.NewRequest("GET", "/admin?theme=midnight-cinema", nil)
+	w := httptest.NewRecorder()
+	h.Handler().ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Fatalf("code = %d", w.Code)
+	}
+	body := w.Body.String()
+	for _, want := range []string{
+		`data-tab-target="readiness"`,
+		`data-tab-target="browser"`,
+		`data-tab-target="stream-test"`,
+		`data-tab-target="diagnostics"`,
+		`id="search-form"`,
+		`id="stream-form"`,
+		`Redirect fallback`,
+		`This plugin is stateless`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("admin page missing %q", want)
+		}
+	}
+}
