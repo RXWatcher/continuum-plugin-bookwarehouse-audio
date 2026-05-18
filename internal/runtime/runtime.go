@@ -8,6 +8,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/url"
+	"path/filepath"
+	"strings"
 	"sync"
 
 	pluginv1 "github.com/ContinuumApp/continuum-plugin-sdk/pkg/pluginproto/continuum/plugin/v1"
@@ -72,7 +76,11 @@ func (s *Server) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*
 		case "direct_file_access":
 			cfg.DirectFileAccess = boolFromValue(m["value"])
 		case "path_remappings":
-			cfg.PathRemappings = pathRemappingsFromValue(m["value"])
+			remaps, err := pathRemappingsFromValue(m["value"])
+			if err != nil {
+				return nil, fmt.Errorf("path_remappings: %w", err)
+			}
+			cfg.PathRemappings = remaps
 		}
 	}
 	if cfg.BaseURL == "" {
@@ -80,6 +88,12 @@ func (s *Server) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*
 	}
 	if cfg.APIKey == "" {
 		return nil, fmt.Errorf("api_key is required")
+	}
+	if err := validateBaseURL(cfg.BaseURL); err != nil {
+		return nil, fmt.Errorf("base_url: %w", err)
+	}
+	if !cfg.DirectFileAccess && len(cfg.PathRemappings) > 0 {
+		return nil, fmt.Errorf("path_remappings require direct_file_access")
 	}
 	if s.onCfg != nil {
 		if err := s.onCfg(cfg); err != nil {
@@ -122,25 +136,56 @@ func boolFromValue(v any) bool {
 	return b
 }
 
-func pathRemappingsFromValue(v any) []PathRemapping {
+func pathRemappingsFromValue(v any) ([]PathRemapping, error) {
 	items, ok := v.([]any)
 	if !ok {
-		return nil
+		return nil, nil
 	}
 	out := make([]PathRemapping, 0, len(items))
-	for _, item := range items {
+	for i, item := range items {
 		m, ok := item.(map[string]any)
 		if !ok {
-			continue
+			return nil, fmt.Errorf("[%d] must be an object", i)
 		}
 		source := stringFromValue(m["source_path"], m["sourcePath"])
 		target := stringFromValue(m["target_path"], m["targetPath"])
 		if source == "" || target == "" {
-			continue
+			return nil, fmt.Errorf("[%d] source_path and target_path are required", i)
+		}
+		if !filepath.IsAbs(source) {
+			return nil, fmt.Errorf("[%d] source_path must be absolute", i)
+		}
+		if !filepath.IsAbs(target) {
+			return nil, fmt.Errorf("[%d] target_path must be absolute", i)
 		}
 		out = append(out, PathRemapping{SourcePath: source, TargetPath: target})
 	}
-	return out
+	return out, nil
+}
+
+func validateBaseURL(raw string) error {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return err
+	}
+	if u.Scheme != "https" && u.Scheme != "http" {
+		return fmt.Errorf("scheme must be http or https")
+	}
+	if u.Host == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" {
+		return fmt.Errorf("must be an origin URL without credentials, query, or fragment")
+	}
+	if u.Scheme == "http" && !isLocalhost(u.Hostname()) {
+		return fmt.Errorf("must use https except for localhost")
+	}
+	return nil
+}
+
+func isLocalhost(host string) bool {
+	if strings.EqualFold(host, "localhost") {
+		return true
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && ip.IsLoopback()
 }
 
 // MarshalConfig is exported for tests that need to verify the config decode.
