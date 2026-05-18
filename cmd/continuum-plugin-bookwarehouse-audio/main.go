@@ -37,6 +37,7 @@ func main() {
 	}
 
 	httpSrv := httproutes.NewServer()
+	httpSrv.SetHandler(server.New(server.Deps{}).Handler())
 
 	// This plugin is a pure audiobook library/catalog/stream source: no
 	// state, no DB, no request forwarding. Configure just (re)builds the

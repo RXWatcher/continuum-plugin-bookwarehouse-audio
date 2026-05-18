@@ -84,10 +84,16 @@ func (s *Server) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*
 		}
 	}
 	if cfg.BaseURL == "" {
-		return nil, fmt.Errorf("base_url is required")
+		s.mu.Lock()
+		s.cfg = cfg
+		s.mu.Unlock()
+		return &pluginv1.ConfigureResponse{}, nil
 	}
-	if cfg.APIKey == "" {
-		return nil, fmt.Errorf("api_key is required")
+	if !cfg.Configured() {
+		s.mu.Lock()
+		s.cfg = cfg
+		s.mu.Unlock()
+		return &pluginv1.ConfigureResponse{}, nil
 	}
 	if err := validateBaseURL(cfg.BaseURL); err != nil {
 		return nil, fmt.Errorf("base_url: %w", err)

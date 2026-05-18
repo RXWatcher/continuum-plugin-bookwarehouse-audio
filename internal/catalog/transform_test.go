@@ -50,12 +50,12 @@ func TestToSummary_DerivesSeriesRef(t *testing.T) {
 
 func TestSlugify(t *testing.T) {
 	cases := map[string]string{
-		"Andy Weir":        "andy-weir",
-		"  Ayn  Rand  ":    "ayn-rand",
-		"J.R.R. Tolkien":   "j-r-r-tolkien",
-		"Iain M. Banks":    "iain-m-banks",
-		"José Saramago":    "josé-saramago",
-		"":                 "",
+		"Andy Weir":      "andy-weir",
+		"  Ayn  Rand  ":  "ayn-rand",
+		"J.R.R. Tolkien": "j-r-r-tolkien",
+		"Iain M. Banks":  "iain-m-banks",
+		"José Saramago":  "josé-saramago",
+		"":               "",
 	}
 	for in, want := range cases {
 		if got := catalog.Slugify(in); got != want {
