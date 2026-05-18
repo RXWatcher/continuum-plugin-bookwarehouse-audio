@@ -1,7 +1,7 @@
 # BookWarehouse Audio Setup, Debugging, And Flows
 
 Plugin ID: `continuum.bookwarehouse-audio`
-Version documented: `0.1.0`
+Version documented: `1.0.0`
 
 ## Purpose
 
@@ -10,25 +10,20 @@ audiobook backend connector for a BookWarehouse instance.
 ## Runtime Dependencies
 
 - Continuum plugin host
-- Postgres schema for this plugin
 - Reachable BookWarehouse API
 - continuum.audiobooks for the user-facing portal
 
 ## Setup Checklist
 
-1. Create schema and configure database_url.
-2. Configure base_url, api_key, cover size, quality profile, and direct streaming/path remapping options.
-3. Install continuum.audiobooks and map a presentation library to this backend.
-4. Test search/detail from the portal.
-5. Submit a request if request forwarding is enabled in BookWarehouse.
+1. Configure base_url, api_key, cover size, and direct streaming/path remapping options.
+2. Install continuum.audiobooks and map a presentation library to this backend.
+3. Test search/detail/streaming from the portal.
 
 ## Configuration Reference
 
-- `database_url`
 - `base_url`
 - `api_key`
 - `default_cover_size`
-- `request_quality_profile`
 - `direct_file_access`
 - `path_remappings`
 
@@ -40,9 +35,8 @@ Use the plugin manifest/admin form as the source of truth for field validation a
 
 ## Capabilities
 
-- `http_routes.v1 (backend) - Catalog, streaming, and request forwarding to a BookWarehouse instance.`
-- `audiobook_backend.v1 (default) - Catalog, cover, streaming, and request source for the Audiobooks portal.`
-- `event_consumer.v1 (request_handler) - Forwards audiobook request_submitted events to BookWarehouse monitoring.`
+- `http_routes.v1 (backend) - Catalog, cover, and streaming for a BookWarehouse instance.`
+- `audiobook_backend.v1 (default) - Catalog, cover, and streaming source for the Audiobooks portal.`
 
 ## Operational Flows
 
@@ -52,23 +46,17 @@ Use the plugin manifest/admin form as the source of truth for field validation a
 2. The plugin proxies catalog and cover requests to BookWarehouse.
 3. For playback, it either streams through BookWarehouse or uses direct file access when enabled.
 
-### Requests
-
-1. Audiobooks emits a request_submitted event targeted at this backend.
-2. The plugin forwards the request to BookWarehouse and reports status back.
-
 ## How This Plugin Communicates
 
 - Serves as audiobook_backend.v1 for continuum.audiobooks.
-- Optionally consumes audiobook request events.
-- Talks outward to BookWarehouse and publishes request status events.
+- Talks outward to BookWarehouse for catalog, cover, and streaming data.
 
 ## Debugging Runbook
 
 - Validate base_url from inside the plugin runtime.
 - Check api_key permissions on BookWarehouse.
 - If covers or streams fail, check default_cover_size, direct_file_access, and path_remappings.
-- If requests are accepted but never complete, inspect BookWarehouse queue state and plugin event logs.
+- If request fulfillment is needed, configure a separate audiobook request-provider plugin.
 
 ## Log And Health Checks
 
