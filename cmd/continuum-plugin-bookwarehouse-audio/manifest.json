@@ -1,9 +1,14 @@
 {
   "plugin_id": "continuum.bookwarehouse-audio",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "checksum": "765b09aab277372aeede9000d3798a140a80bf8a6051406d1d902c88fc354b16",
   "continuum_api_version": "v1",
-  "supported_platforms": [{"os": "linux", "arch": "amd64"}],
+  "supported_platforms": [
+    {
+      "os": "linux",
+      "arch": "amd64"
+    }
+  ],
   "capabilities": [
     {
       "type": "http_routes.v1",
@@ -19,7 +24,12 @@
     }
   ],
   "http_routes": [
-    {"id": "api", "method": "*", "path": "/api/v1/*", "access": "authenticated"}
+    {
+      "id": "api",
+      "method": "*",
+      "path": "/api/v1/*",
+      "access": "authenticated"
+    }
   ],
   "global_config_schema": [
     {
@@ -30,7 +40,12 @@
       "required": true,
       "admin_form": {
         "fields": [
-          {"key": "value", "label": "URL", "control": "ADMIN_FORM_CONTROL_TEXT", "required": true}
+          {
+            "key": "value",
+            "label": "URL",
+            "control": "ADMIN_FORM_CONTROL_TEXT",
+            "required": true
+          }
         ]
       }
     },
@@ -42,7 +57,13 @@
       "required": true,
       "admin_form": {
         "fields": [
-          {"key": "value", "label": "API key", "control": "ADMIN_FORM_CONTROL_PASSWORD", "required": true, "secret": true}
+          {
+            "key": "value",
+            "label": "API key",
+            "control": "ADMIN_FORM_CONTROL_PASSWORD",
+            "required": true,
+            "secret": true
+          }
         ]
       }
     },
@@ -53,7 +74,11 @@
       "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
       "admin_form": {
         "fields": [
-          {"key": "value", "label": "Cover size", "control": "ADMIN_FORM_CONTROL_TEXT"}
+          {
+            "key": "value",
+            "label": "Cover size",
+            "control": "ADMIN_FORM_CONTROL_TEXT"
+          }
         ]
       }
     },
@@ -64,7 +89,11 @@
       "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"boolean\",\"default\":false}}}",
       "admin_form": {
         "fields": [
-          {"key": "value", "label": "Enable direct file streaming", "control": "ADMIN_FORM_CONTROL_CHECKBOX"}
+          {
+            "key": "value",
+            "label": "Enable direct file streaming",
+            "control": "ADMIN_FORM_CONTROL_CHECKBOX"
+          }
         ]
       }
     },
@@ -75,7 +104,11 @@
       "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"source_path\":{\"type\":\"string\"},\"target_path\":{\"type\":\"string\"}},\"required\":[\"source_path\",\"target_path\"]},\"default\":[]}}}",
       "admin_form": {
         "fields": [
-          {"key": "value", "label": "JSON remapping array", "control": "ADMIN_FORM_CONTROL_TEXT"}
+          {
+            "key": "value",
+            "label": "JSON remapping array",
+            "control": "ADMIN_FORM_CONTROL_TEXT"
+          }
         ]
       }
     }
