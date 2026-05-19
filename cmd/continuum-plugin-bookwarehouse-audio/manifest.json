@@ -48,81 +48,18 @@
   ],
   "global_config_schema": [
     {
-      "key": "base_url",
-      "title": "BookWarehouse base URL",
-      "description": "e.g. https://bookwarehouse.example.com (no trailing slash).",
+      "key": "database_url",
+      "title": "Plugin database URL",
+      "description": "PostgreSQL DSN for the BookWarehouse Audio plugin database.",
       "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}},\"required\":[\"value\"]}",
       "required": true,
       "admin_form": {
         "fields": [
           {
             "key": "value",
-            "label": "URL",
+            "label": "Database URL",
             "control": "ADMIN_FORM_CONTROL_TEXT",
             "required": true
-          }
-        ]
-      }
-    },
-    {
-      "key": "api_key",
-      "title": "BookWarehouse API key",
-      "description": "X-API-Key header for upstream calls.",
-      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}},\"required\":[\"value\"]}",
-      "required": true,
-      "admin_form": {
-        "fields": [
-          {
-            "key": "value",
-            "label": "API key",
-            "control": "ADMIN_FORM_CONTROL_PASSWORD",
-            "required": true,
-            "secret": true
-          }
-        ]
-      }
-    },
-    {
-      "key": "default_cover_size",
-      "title": "Default cover size",
-      "description": "One of small|medium|large|original. Defaults to large.",
-      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"string\"}}}",
-      "admin_form": {
-        "fields": [
-          {
-            "key": "value",
-            "label": "Cover size",
-            "control": "ADMIN_FORM_CONTROL_TEXT"
-          }
-        ]
-      }
-    },
-    {
-      "key": "direct_file_access",
-      "title": "Direct local file streaming",
-      "description": "When enabled, stream audiobook files from local filesystem mounts using path remapping before falling back to Book Warehouse redirects.",
-      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"boolean\",\"default\":false}}}",
-      "admin_form": {
-        "fields": [
-          {
-            "key": "value",
-            "label": "Enable direct file streaming",
-            "control": "ADMIN_FORM_CONTROL_CHECKBOX"
-          }
-        ]
-      }
-    },
-    {
-      "key": "path_remappings",
-      "title": "Audiobook path remappings",
-      "description": "JSON array mapping Book Warehouse paths to paths mounted inside Continuum, e.g. [{\"source_path\":\"/media/books\",\"target_path\":\"/mnt/books\"}]. First matching rule wins.",
-      "json_schema": "{\"type\":\"object\",\"properties\":{\"value\":{\"type\":\"array\",\"items\":{\"type\":\"object\",\"properties\":{\"source_path\":{\"type\":\"string\"},\"target_path\":{\"type\":\"string\"}},\"required\":[\"source_path\",\"target_path\"]},\"default\":[]}}}",
-      "admin_form": {
-        "fields": [
-          {
-            "key": "value",
-            "label": "JSON remapping array",
-            "control": "ADMIN_FORM_CONTROL_TEXT"
           }
         ]
       }

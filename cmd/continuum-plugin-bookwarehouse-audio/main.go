@@ -4,14 +4,17 @@
 package main
 
 import (
+	"context"
 	"crypto/sha256"
 	_ "embed"
 	"encoding/hex"
 	"fmt"
 	"os"
 	goruntime "runtime"
+	"sync/atomic"
 
 	"github.com/hashicorp/go-hclog"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	pluginv1 "github.com/ContinuumApp/continuum-plugin-sdk/pkg/pluginproto/continuum/plugin/v1"
 	publicmanifest "github.com/ContinuumApp/continuum-plugin-sdk/pkg/pluginsdk/manifest"
@@ -19,8 +22,10 @@ import (
 
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/httproutes"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/migrate"
 	pluginrt "github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/runtime"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/server"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/store"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/stream"
 )
 
@@ -39,19 +44,51 @@ func main() {
 	httpSrv := httproutes.NewServer()
 	httpSrv.SetHandler(server.New(server.Deps{}).Handler())
 
-	// This plugin is a pure audiobook library/catalog/stream source: no
-	// state, no DB, no request forwarding. Configure just (re)builds the
-	// upstream client and HTTP handler.
+	var poolPtr atomic.Pointer[pgxpool.Pool]
+
 	rt := pluginrt.New(manifest, func(cfg pluginrt.Config) error {
-		bwClient := bookwarehouse.NewClient(cfg.BaseURL, cfg.APIKey)
+		ctx := context.Background()
+		pcfg, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+		if err != nil {
+			return fmt.Errorf("parse db: %w", err)
+		}
+		if pcfg.MaxConns < 8 {
+			pcfg.MaxConns = 8
+		}
+		p, err := pgxpool.NewWithConfig(ctx, pcfg)
+		if err != nil {
+			return fmt.Errorf("pgxpool: %w", err)
+		}
+		if err := migrate.Run(ctx, cfg.DatabaseURL); err != nil {
+			p.Close()
+			return fmt.Errorf("migrate: %w", err)
+		}
+		st := store.New(p)
+		appCfg, err := st.ImportLegacyAppConfig(ctx, cfg)
+		if err != nil {
+			p.Close()
+			return fmt.Errorf("import app config: %w", err)
+		}
+		appCfg.DatabaseURL = cfg.DatabaseURL
+		cfg = appCfg
+
+		var bwClient *bookwarehouse.Client
+		if cfg.BaseURL != "" && cfg.APIKey != "" {
+			bwClient = bookwarehouse.NewClient(cfg.BaseURL, cfg.APIKey)
+		}
 		srv := server.New(server.Deps{
 			BookwarehouseClient: bwClient,
 			StreamConfig: stream.Config{
 				DirectFileAccess: cfg.DirectFileAccess,
 				PathRemappings:   toStreamRemappings(cfg.PathRemappings),
 			},
+			Store:  st,
+			Config: cfg,
 		})
 		httpSrv.SetHandler(srv.Handler())
+		if old := poolPtr.Swap(p); old != nil {
+			old.Close()
+		}
 		logger.Info("configured", "base_url", cfg.BaseURL)
 		return nil
 	})

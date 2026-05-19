@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"net"
 	"net/url"
 	"path/filepath"
@@ -20,11 +21,12 @@ import (
 
 // Config is the parsed plugin global config.
 type Config struct {
-	BaseURL          string `json:"base_url"`
-	APIKey           string `json:"api_key"`
-	DefaultCoverSize string `json:"default_cover_size"`
-	DirectFileAccess bool   `json:"direct_file_access"`
-	PathRemappings   []PathRemapping
+	DatabaseURL      string          `json:"database_url,omitempty"`
+	BaseURL          string          `json:"base_url"`
+	APIKey           string          `json:"api_key,omitempty"`
+	DefaultCoverSize string          `json:"default_cover_size"`
+	DirectFileAccess bool            `json:"direct_file_access"`
+	PathRemappings   []PathRemapping `json:"path_remappings"`
 }
 
 // PathRemapping converts paths returned by Book Warehouse into local mount
@@ -34,10 +36,31 @@ type PathRemapping struct {
 	TargetPath string `json:"target_path"`
 }
 
-// Configured returns true when all required fields are populated.
+// Configured returns true when the plugin can bootstrap its DB-owned config.
 func (c Config) Configured() bool {
-	return c.BaseURL != "" && c.APIKey != ""
+	return c.DatabaseURL != ""
 }
+
+func mask(s string) string {
+	if s == "" {
+		return ""
+	}
+	return "***redacted***"
+}
+
+// LogValue prevents accidental logging of API keys and database credentials.
+func (c Config) LogValue() slog.Value {
+	return slog.GroupValue(
+		slog.String("database_url", mask(c.DatabaseURL)),
+		slog.String("base_url", c.BaseURL),
+		slog.String("api_key", mask(c.APIKey)),
+		slog.String("default_cover_size", c.DefaultCoverSize),
+		slog.Bool("direct_file_access", c.DirectFileAccess),
+		slog.Int("path_remappings", len(c.PathRemappings)),
+	)
+}
+
+func (c Config) String() string { return c.LogValue().String() }
 
 // Server implements the plugin's Runtime service.
 type Server struct {
@@ -67,6 +90,8 @@ func (s *Server) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*
 		}
 		m := v.AsMap()
 		switch e.GetKey() {
+		case "database_url":
+			cfg.DatabaseURL = stringFromValue(m["value"], firstString(m))
 		case "base_url":
 			cfg.BaseURL = stringFromValue(m["value"], firstString(m))
 		case "api_key":
@@ -83,20 +108,16 @@ func (s *Server) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*
 			cfg.PathRemappings = remaps
 		}
 	}
-	if cfg.BaseURL == "" {
+	if cfg.DatabaseURL == "" {
 		s.mu.Lock()
 		s.cfg = cfg
 		s.mu.Unlock()
 		return &pluginv1.ConfigureResponse{}, nil
 	}
-	if !cfg.Configured() {
-		s.mu.Lock()
-		s.cfg = cfg
-		s.mu.Unlock()
-		return &pluginv1.ConfigureResponse{}, nil
-	}
-	if err := validateBaseURL(cfg.BaseURL); err != nil {
-		return nil, fmt.Errorf("base_url: %w", err)
+	if cfg.BaseURL != "" {
+		if err := ValidateBaseURL(cfg.BaseURL); err != nil {
+			return nil, fmt.Errorf("base_url: %w", err)
+		}
 	}
 	if !cfg.DirectFileAccess && len(cfg.PathRemappings) > 0 {
 		return nil, fmt.Errorf("path_remappings require direct_file_access")
@@ -169,7 +190,7 @@ func pathRemappingsFromValue(v any) ([]PathRemapping, error) {
 	return out, nil
 }
 
-func validateBaseURL(raw string) error {
+func ValidateBaseURL(raw string) error {
 	u, err := url.Parse(raw)
 	if err != nil {
 		return err

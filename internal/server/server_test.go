@@ -55,13 +55,15 @@ func TestAdminPageIncludesStatelessOperatorConsole(t *testing.T) {
 	body := w.Body.String()
 	for _, want := range []string{
 		`data-tab-target="readiness"`,
+		`data-tab-target="config"`,
 		`data-tab-target="browser"`,
 		`data-tab-target="stream-test"`,
 		`data-tab-target="diagnostics"`,
 		`id="search-form"`,
+		`id="config-form"`,
 		`id="stream-form"`,
 		`Redirect fallback`,
-		`This plugin is stateless`,
+		`plugin database`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("admin page missing %q", want)

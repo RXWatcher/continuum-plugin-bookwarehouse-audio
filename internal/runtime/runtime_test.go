@@ -24,8 +24,9 @@ func req(t *testing.T, kv map[string]any) *pluginv1.ConfigureRequest {
 func TestConfigure_RejectsInsecureRemoteBaseURL(t *testing.T) {
 	s := New(nil, func(Config) error { return nil })
 	_, err := s.Configure(context.Background(), req(t, map[string]any{
-		"base_url": "http://bookwarehouse.example",
-		"api_key":  "k",
+		"database_url": "postgres://plugin:secret@localhost/bookwarehouse_audio",
+		"base_url":     "http://bookwarehouse.example",
+		"api_key":      "k",
 	}))
 	if err == nil {
 		t.Fatal("expected base_url error")
@@ -39,8 +40,9 @@ func TestConfigure_AllowsLocalHTTPBaseURL(t *testing.T) {
 		return nil
 	})
 	_, err := s.Configure(context.Background(), req(t, map[string]any{
-		"base_url": "http://localhost:8080",
-		"api_key":  "k",
+		"database_url": "postgres://plugin:secret@localhost/bookwarehouse_audio",
+		"base_url":     "http://localhost:8080",
+		"api_key":      "k",
 	}))
 	if err != nil {
 		t.Fatalf("Configure: %v", err)
@@ -53,6 +55,7 @@ func TestConfigure_AllowsLocalHTTPBaseURL(t *testing.T) {
 func TestConfigure_RejectsInvalidPathRemapping(t *testing.T) {
 	s := New(nil, func(Config) error { return nil })
 	_, err := s.Configure(context.Background(), req(t, map[string]any{
+		"database_url":       "postgres://plugin:secret@localhost/bookwarehouse_audio",
 		"base_url":           "https://bookwarehouse.example",
 		"api_key":            "k",
 		"direct_file_access": true,
@@ -68,8 +71,9 @@ func TestConfigure_RejectsInvalidPathRemapping(t *testing.T) {
 func TestConfigure_RejectsRemappingWhenDirectAccessDisabled(t *testing.T) {
 	s := New(nil, func(Config) error { return nil })
 	_, err := s.Configure(context.Background(), req(t, map[string]any{
-		"base_url": "https://bookwarehouse.example",
-		"api_key":  "k",
+		"database_url": "postgres://plugin:secret@localhost/bookwarehouse_audio",
+		"base_url":     "https://bookwarehouse.example",
+		"api_key":      "k",
 		"path_remappings": []any{
 			map[string]any{"source_path": "/warehouse", "target_path": "/mnt/audio"},
 		},
