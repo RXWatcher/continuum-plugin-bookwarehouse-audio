@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -37,6 +38,7 @@ func truncForError(b []byte) string {
 
 // Client is the typed BookWarehouse REST client.
 type Client struct {
+	mu      sync.RWMutex
 	baseURL string
 	apiKey  string
 	hc      *http.Client
@@ -52,15 +54,35 @@ func NewClient(baseURL, apiKey string) *Client {
 }
 
 // BaseURL exposes the trimmed base URL (used by cover/stream redirect handlers).
-func (c *Client) BaseURL() string { return c.baseURL }
+func (c *Client) BaseURL() string {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.baseURL
+}
+
+// Reconfigure updates the upstream base URL and API key in place so admin
+// config saves take effect without a plugin restart.
+func (c *Client) Reconfigure(baseURL, apiKey string) {
+	c.mu.Lock()
+	c.baseURL = strings.TrimRight(baseURL, "/")
+	c.apiKey = apiKey
+	c.mu.Unlock()
+}
+
+func (c *Client) configSnapshot() (string, string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	return c.baseURL, c.apiKey
+}
 
 // Get performs a GET against baseURL+path and returns the body bytes.
 func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", c.baseURL+path, nil)
+	baseURL, apiKey := c.configSnapshot()
+	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+path, nil)
 	if err != nil {
 		return nil, fmt.Errorf("new request: %w", err)
 	}
-	req.Header.Set("X-API-Key", c.apiKey)
+	req.Header.Set("X-API-Key", apiKey)
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.hc.Do(req)
 	if err != nil {
@@ -79,11 +101,12 @@ func (c *Client) Get(ctx context.Context, path string) ([]byte, error) {
 
 // PostJSON sends a JSON-encoded body and returns the response body bytes.
 func (c *Client) PostJSON(ctx context.Context, path string, body []byte) ([]byte, error) {
-	req, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+path, bytes.NewReader(body))
+	baseURL, apiKey := c.configSnapshot()
+	req, err := http.NewRequestWithContext(ctx, "POST", baseURL+path, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("new request: %w", err)
 	}
-	req.Header.Set("X-API-Key", c.apiKey)
+	req.Header.Set("X-API-Key", apiKey)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 	resp, err := c.hc.Do(req)
@@ -208,23 +231,25 @@ func (c *Client) ListNarrators(ctx context.Context, p ListParams) (Paged[Narrato
 // accepts api_key as well as the X-API-Key header) — without it the
 // authenticated endpoint would 401.
 func (c *Client) StreamURL(bookID string, fileIdx int) string {
+	baseURL, apiKey := c.configSnapshot()
 	return fmt.Sprintf("%s/api/v1/audiobooks/%s/stream?file_id=%d%s",
-		c.baseURL, url.PathEscape(bookID), fileIdx, c.apiKeyQuery("&"))
+		baseURL, url.PathEscape(bookID), fileIdx, apiKeyQuery(apiKey, "&"))
 }
 
 // CoverURL returns the upstream audiobook cover URL. The upstream cover
 // endpoint takes no size and requires auth; the key is passed as a query
 // param for the same redirect reason as StreamURL.
 func (c *Client) CoverURL(bookID, _ string) string {
+	baseURL, apiKey := c.configSnapshot()
 	return fmt.Sprintf("%s/api/v1/audiobooks/%s/cover%s",
-		c.baseURL, url.PathEscape(bookID), c.apiKeyQuery("?"))
+		baseURL, url.PathEscape(bookID), apiKeyQuery(apiKey, "?"))
 }
 
 // apiKeyQuery returns "<sep>api_key=<escaped>" when an API key is configured,
 // else "". sep is "?" or "&" depending on whether the URL already has a query.
-func (c *Client) apiKeyQuery(sep string) string {
-	if c.apiKey == "" {
+func apiKeyQuery(apiKey, sep string) string {
+	if apiKey == "" {
 		return ""
 	}
-	return sep + "api_key=" + url.QueryEscape(c.apiKey)
+	return sep + "api_key=" + url.QueryEscape(apiKey)
 }

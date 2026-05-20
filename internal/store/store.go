@@ -22,7 +22,11 @@ func New(pool *pgxpool.Pool) *Store { return &Store{pool: pool} }
 func (s *Store) Pool() *pgxpool.Pool { return s.pool }
 
 func DefaultAppConfig() pluginrt.Config {
-	return pluginrt.Config{DefaultCoverSize: "large", PathRemappings: []pluginrt.PathRemapping{}}
+	return pluginrt.Config{
+		BaseURL:          "https://bookwarehouse.zenterprise.org",
+		DefaultCoverSize: "large",
+		PathRemappings:   []pluginrt.PathRemapping{},
+	}
 }
 
 func (s *Store) GetAppConfig(ctx context.Context) (pluginrt.Config, error) {
@@ -81,6 +85,9 @@ func (s *Store) ImportLegacyAppConfig(ctx context.Context, legacy pluginrt.Confi
 		return current, nil
 	}
 	legacy.DatabaseURL = ""
+	if legacy.BaseURL == "" {
+		legacy.BaseURL = current.BaseURL
+	}
 	normalize(&legacy)
 	if reflect.DeepEqual(legacy, current) {
 		return current, nil
