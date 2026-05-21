@@ -137,7 +137,63 @@ func (h *Handler) Stream() http.HandlerFunc {
 		w.Header().Set("Accept-Ranges", "bytes")
 		w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="%s"`, safeFilename(filename)))
 		w.Header().Set("X-Stream-Source", "local-fs")
+		// The host plugin proxy buffers each response (cap is ~8 MiB), so a
+		// full-file response on audiobooks (~600 MiB) trips the cap and the
+		// browser sees a 502 on its initial preload GET. Clamp open-ended or
+		// missing Range headers to a single chunk; the browser will continue
+		// range-requesting the rest of the file in subsequent calls.
+		clampRangeHeader(r, stat.Size())
 		http.ServeContent(w, r, filename, stat.ModTime(), f)
+	}
+}
+
+// streamChunkBytes is the maximum bytes we emit in a single response. Sized
+// well under the host plugin proxy's response cap so we never exceed it.
+const streamChunkBytes int64 = 4 * 1024 * 1024
+
+// clampRangeHeader rewrites the Range header in place so any single response
+// is bounded by streamChunkBytes. Only the open-ended forms are clamped;
+// explicit narrow ranges and suffix ranges pass through unchanged.
+func clampRangeHeader(r *http.Request, fileSize int64) {
+	raw := r.Header.Get("Range")
+	if raw == "" {
+		if fileSize > streamChunkBytes {
+			r.Header.Set("Range", fmt.Sprintf("bytes=0-%d", streamChunkBytes-1))
+		}
+		return
+	}
+	if !strings.HasPrefix(raw, "bytes=") {
+		return
+	}
+	rng := strings.TrimPrefix(raw, "bytes=")
+	if strings.Contains(rng, ",") {
+		return
+	}
+	dash := strings.IndexByte(rng, '-')
+	if dash < 0 {
+		return
+	}
+	startStr, endStr := rng[:dash], rng[dash+1:]
+	if startStr == "" {
+		// Suffix range (bytes=-N) — leave alone; the suffix length is the
+		// caller's explicit request and ServeContent enforces upper bounds.
+		return
+	}
+	start, err := strconv.ParseInt(startStr, 10, 64)
+	if err != nil {
+		return
+	}
+	var end int64
+	if endStr == "" {
+		end = fileSize - 1
+	} else {
+		end, err = strconv.ParseInt(endStr, 10, 64)
+		if err != nil {
+			return
+		}
+	}
+	if end-start+1 > streamChunkBytes {
+		r.Header.Set("Range", fmt.Sprintf("bytes=%d-%d", start, start+streamChunkBytes-1))
 	}
 }
 
