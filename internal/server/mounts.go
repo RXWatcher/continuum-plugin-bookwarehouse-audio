@@ -5,6 +5,7 @@ import (
 
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/catalog"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/covers"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/stream"
 )
 
@@ -14,7 +15,8 @@ func (s *Server) mountCatalog(r chi.Router) {
 	if !ok || cli == nil {
 		return
 	}
-	h := catalog.NewHandler(cli)
+	cv, _ := s.deps.Covers.(*covers.Service)
+	h := catalog.NewHandler(cli, cv, s.deps.Config.StreamSigningSecret)
 	r.Get("/catalog", h.List())
 	r.Get("/catalog/libraries", h.Libraries())
 	r.Get("/catalog/search", h.Search())

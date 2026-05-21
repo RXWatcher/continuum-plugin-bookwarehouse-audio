@@ -1,8 +1,9 @@
 {
   "plugin_id": "continuum.bookwarehouse-audio",
   "version": "1.0.0",
-  "checksum": "765b09aab277372aeede9000d3798a140a80bf8a6051406d1d902c88fc354b16",
+  "checksum": "c722a76f234b583ae600cb81eaaa8fad1b15a1da2962a64f78be39989f4c1b40",
   "continuum_api_version": "v1",
+  "category": "Books/Audiobooks",
   "supported_platforms": [
     {
       "os": "linux",
@@ -20,10 +21,30 @@
       "type": "audiobook_backend.v1",
       "id": "default",
       "display_name": "Book Warehouse Audio",
-      "description": "Catalog, cover, and streaming source for the Audiobooks portal."
+      "description": "Catalog, cover, and streaming source for the Audiobooks portal.",
+      "metadata": {
+        "audiobook_roles": [
+          "library_source"
+        ],
+        "supports_catalog": true,
+        "supports_requests": false,
+        "supports_auto_monitoring": false
+      }
     }
   ],
   "http_routes": [
+    {
+      "id": "stream",
+      "method": "GET",
+      "path": "/api/v1/stream/*",
+      "access": "public"
+    },
+    {
+      "id": "cover",
+      "method": "GET",
+      "path": "/api/v1/cover/*",
+      "access": "public"
+    },
     {
       "id": "api",
       "method": "*",

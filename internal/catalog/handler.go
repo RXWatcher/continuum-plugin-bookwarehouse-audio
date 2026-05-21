@@ -2,21 +2,33 @@ package catalog
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/covers"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/localfs"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/tokens"
 )
 
 // Handler exposes the audiobook_backend.v1 contract over HTTP.
 type Handler struct {
 	client *bookwarehouse.Client
+	covers *covers.Service
+	secret string
 }
 
-// NewHandler constructs a Handler bound to a typed upstream client.
-func NewHandler(c *bookwarehouse.Client) *Handler { return &Handler{client: c} }
+// NewHandler constructs a Handler bound to a typed upstream client. covers
+// may be nil when the cover service hasn't been wired (e.g. early dev); the
+// Cover() route returns 503 in that case. secret is the HMAC key shared with
+// the portal — Cover() requires a valid signed ?token= matching the book id.
+func NewHandler(c *bookwarehouse.Client, cv *covers.Service, secret string) *Handler {
+	return &Handler{client: c, covers: cv, secret: secret}
+}
 
 // maxCatalogLimit caps the page size forwarded upstream. The limit is
 // attacker-controlled query input; without a ceiling a client asking for
@@ -170,17 +182,91 @@ func (h *Handler) BrowseNarrators() http.HandlerFunc {
 	}
 }
 
-// Cover handles GET /api/v1/cover/{book_id}/{size} → 302 to upstream cover URL.
+// Cover handles GET /api/v1/cover/{book_id}/{size}. Cover bytes are served
+// from the local filesystem mount: a sidecar file in the book's directory
+// when present, otherwise the embedded picture extracted from the first
+// audio file. No redirect to BookWarehouse — the byte path stays inside the
+// plugin so browsers don't follow URLs they can't reach.
 func (h *Handler) Cover() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		bookID := chi.URLParam(r, "book_id")
-		size := chi.URLParam(r, "size")
+		sizeParam := chi.URLParam(r, "size")
 		if bookID == "" {
 			http.Error(w, "book_id required", http.StatusBadRequest)
 			return
 		}
-		http.Redirect(w, r, h.client.CoverURL(bookID, size), http.StatusFound)
+		if h.covers == nil {
+			writeServiceUnavailable(w, "cover service not configured: set library_root")
+			return
+		}
+		// The cover route is declared public on the host plugin proxy
+		// (proxy can't validate per-plugin tokens), so this handler is the
+		// only auth gate. file_idx=-1 is the sentinel for cover tokens.
+		if _, err := tokens.Verify(h.secret, r.URL.Query().Get("token"), bookID, tokens.CoverFileIdx); err != nil {
+			writeTokenError(w, err)
+			return
+		}
+		res, err := h.covers.Get(r.Context(), bookID, normalizeSize(sizeParam))
+		if err != nil {
+			writeCoverError(w, err)
+			return
+		}
+		defer res.Close()
+		w.Header().Set("Content-Type", res.ContentType)
+		w.Header().Set("Cache-Control", "private, max-age=3600")
+		w.Header().Set("X-Cover-Source", "local-fs")
+		http.ServeContent(w, r, "cover", res.ModTime, res.Reader)
 	}
+}
+
+// normalizeSize maps the URL {size} segment to a covers.Size. Accepts
+// historical names from the older API (large, small, thumbnail) so existing
+// portal URLs keep working through the rewrite.
+func normalizeSize(raw string) covers.Size {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "thumb", "thumbnail", "small":
+		return covers.SizeThumb
+	case "medium":
+		return covers.SizeMedium
+	default:
+		return covers.SizeOriginal
+	}
+}
+
+func writeCoverError(w http.ResponseWriter, err error) {
+	if errors.Is(err, covers.ErrNoCover) {
+		http.Error(w, "no cover available", http.StatusNotFound)
+		return
+	}
+	if re := localfs.AsResolveError(err); re != nil {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadGateway)
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"error":      "local filesystem resolve failed",
+			"source_key": re.SourceKey,
+			"reason":     re.Reason,
+			"attempts":   re.Attempts,
+		})
+		return
+	}
+	http.Error(w, err.Error(), http.StatusBadGateway)
+}
+
+func writeServiceUnavailable(w http.ResponseWriter, msg string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusServiceUnavailable)
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": msg})
+}
+
+func writeTokenError(w http.ResponseWriter, err error) {
+	w.Header().Set("Content-Type", "application/json")
+	if errors.Is(err, tokens.ErrSecretUnconfigured) {
+		w.WriteHeader(http.StatusServiceUnavailable)
+		_ = json.NewEncoder(w).Encode(map[string]any{"error": "media signing secret not configured"})
+		return
+	}
+	w.WriteHeader(http.StatusUnauthorized)
+	_ = json.NewEncoder(w).Encode(map[string]any{"error": err.Error()})
 }
 
 func readListParams(r *http.Request) bookwarehouse.ListParams {

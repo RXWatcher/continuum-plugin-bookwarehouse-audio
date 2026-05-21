@@ -62,8 +62,7 @@ func TestAdminPageIncludesStatelessOperatorConsole(t *testing.T) {
 		`id="search-form"`,
 		`id="config-form"`,
 		`id="stream-form"`,
-		`Redirect fallback`,
-		`plugin database`,
+		`Library root`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("admin page missing %q", want)

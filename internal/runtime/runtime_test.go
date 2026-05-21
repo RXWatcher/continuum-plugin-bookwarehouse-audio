@@ -55,10 +55,9 @@ func TestConfigure_AllowsLocalHTTPBaseURL(t *testing.T) {
 func TestConfigure_RejectsInvalidPathRemapping(t *testing.T) {
 	s := New(nil, func(Config) error { return nil })
 	_, err := s.Configure(context.Background(), req(t, map[string]any{
-		"database_url":       "postgres://plugin:secret@localhost/bookwarehouse_audio",
-		"base_url":           "https://bookwarehouse.example",
-		"api_key":            "k",
-		"direct_file_access": true,
+		"database_url": "postgres://plugin:secret@localhost/bookwarehouse_audio",
+		"base_url":     "https://bookwarehouse.example",
+		"api_key":      "k",
 		"path_remappings": []any{
 			map[string]any{"source_path": "relative", "target_path": "/mnt/audio"},
 		},
@@ -68,17 +67,35 @@ func TestConfigure_RejectsInvalidPathRemapping(t *testing.T) {
 	}
 }
 
-func TestConfigure_RejectsRemappingWhenDirectAccessDisabled(t *testing.T) {
+func TestConfigure_AcceptsLibraryRoot(t *testing.T) {
+	var got Config
+	s := New(nil, func(c Config) error {
+		got = c
+		return nil
+	})
+	_, err := s.Configure(context.Background(), req(t, map[string]any{
+		"database_url": "postgres://plugin:secret@localhost/bookwarehouse_audio",
+		"base_url":     "https://bookwarehouse.example",
+		"api_key":      "k",
+		"library_root": "/srv/audiobooks",
+	}))
+	if err != nil {
+		t.Fatalf("Configure: %v", err)
+	}
+	if got.LibraryRoot != "/srv/audiobooks" {
+		t.Fatalf("LibraryRoot = %q", got.LibraryRoot)
+	}
+}
+
+func TestConfigure_RejectsRelativeLibraryRoot(t *testing.T) {
 	s := New(nil, func(Config) error { return nil })
 	_, err := s.Configure(context.Background(), req(t, map[string]any{
 		"database_url": "postgres://plugin:secret@localhost/bookwarehouse_audio",
 		"base_url":     "https://bookwarehouse.example",
 		"api_key":      "k",
-		"path_remappings": []any{
-			map[string]any{"source_path": "/warehouse", "target_path": "/mnt/audio"},
-		},
+		"library_root": "srv/audiobooks",
 	}))
 	if err == nil {
-		t.Fatal("expected direct_file_access error")
+		t.Fatal("expected library_root absolute-path error")
 	}
 }

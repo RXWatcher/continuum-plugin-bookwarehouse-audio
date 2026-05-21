@@ -36,7 +36,7 @@ func upstream(t *testing.T) *httptest.Server {
 }
 
 func mountHandler(c *bookwarehouse.Client) http.Handler {
-	h := catalog.NewHandler(c)
+	h := catalog.NewHandler(c, nil, "")
 	r := chi.NewRouter()
 	r.Get("/catalog", h.List())
 	r.Get("/catalog/libraries", h.Libraries())
@@ -164,17 +164,17 @@ func TestBrowseAuthors(t *testing.T) {
 	}
 }
 
-func TestCoverRedirect(t *testing.T) {
+// Cover() with no covers.Service wired returns 503 — covers are now served
+// from the local filesystem, so a 302 redirect would just dead-end on the
+// browser side.
+func TestCover_ReturnsServiceUnavailableWhenUnconfigured(t *testing.T) {
 	c := bookwarehouse.NewClient("https://upstream.example", "k")
 	srv := mountHandler(c)
 
 	r := httptest.NewRequest("GET", "/cover/bw-42/large", nil)
 	w := httptest.NewRecorder()
 	srv.ServeHTTP(w, r)
-	if w.Code != http.StatusFound {
-		t.Fatalf("code = %d", w.Code)
-	}
-	if loc := w.Header().Get("Location"); loc != "https://upstream.example/api/v1/audiobooks/bw-42/cover?api_key=k" {
-		t.Errorf("Location = %q", loc)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("code = %d, want 503", w.Code)
 	}
 }

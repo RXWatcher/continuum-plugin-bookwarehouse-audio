@@ -59,9 +59,6 @@ func (s *Store) UpdateAppConfig(ctx context.Context, cfg pluginrt.Config) error 
 			return fmt.Errorf("base_url: %w", err)
 		}
 	}
-	if !cfg.DirectFileAccess && len(cfg.PathRemappings) > 0 {
-		return fmt.Errorf("path_remappings require direct_file_access")
-	}
 	raw, err := json.Marshal(cfg)
 	if err != nil {
 		return fmt.Errorf("encode app_config: %w", err)

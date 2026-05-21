@@ -39,7 +39,7 @@ func TestCatalogLimit_ClampedBeforeUpstream(t *testing.T) {
 			defer up.Close()
 
 			c := bookwarehouse.NewClient(up.URL, "k")
-			h := catalog.NewHandler(c)
+			h := catalog.NewHandler(c, nil, "")
 			router := chi.NewRouter()
 			router.Get("/catalog", h.List())
 

@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	goruntime "runtime"
+	"sync"
 	"sync/atomic"
 
 	"github.com/hashicorp/go-hclog"
@@ -21,7 +22,9 @@ import (
 	sdkruntime "github.com/ContinuumApp/continuum-plugin-sdk/pkg/pluginsdk/runtime"
 
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/covers"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/httproutes"
+	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/localfs"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/migrate"
 	pluginrt "github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/runtime"
 	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/server"
@@ -44,7 +47,72 @@ func main() {
 	httpSrv := httproutes.NewServer()
 	httpSrv.SetHandler(server.New(server.Deps{}).Handler())
 
-	var poolPtr atomic.Pointer[pgxpool.Pool]
+	var (
+		poolPtr  atomic.Pointer[pgxpool.Pool]
+		storePtr atomic.Pointer[store.Store]
+		// rebuildMu serializes rebuild() so concurrent admin saves and host
+		// Configure RPCs don't race to swap the http handler.
+		rebuildMu sync.Mutex
+	)
+
+	// Forward declarations so rebuild can pass refresh into server.Deps and
+	// refresh can call rebuild — the classic self-referential closure pair.
+	var (
+		rebuild func(ctx context.Context, st *store.Store, cfg pluginrt.Config) error
+		refresh func(ctx context.Context) error
+	)
+
+	// rebuild constructs the byte-serving Deps from the supplied app config
+	// and atomically swaps the http handler. Single code path that turns
+	// config into a running server — called both on host Configure and on
+	// admin config saves (via the Refresh callback wired into Deps).
+	rebuild = func(ctx context.Context, st *store.Store, cfg pluginrt.Config) error {
+		var bwClient *bookwarehouse.Client
+		if cfg.BaseURL != "" && cfg.APIKey != "" {
+			bwClient = bookwarehouse.NewClient(cfg.BaseURL, cfg.APIKey)
+		}
+		resolver := localfs.New(cfg.LibraryRoot, toLocalfsRemappings(cfg.PathRemappings))
+		var coverSvc *covers.Service
+		if bwClient != nil && resolver.Configured() {
+			cs, err := covers.NewService(bwClient, resolver, cfg.CoverCacheDir)
+			if err != nil {
+				logger.Warn("cover service unavailable", "err", err)
+			} else {
+				coverSvc = cs
+			}
+		}
+		srv := server.New(server.Deps{
+			BookwarehouseClient: bwClient,
+			StreamConfig: stream.Config{
+				LibraryRoot:         cfg.LibraryRoot,
+				PathRemappings:      toStreamRemappings(cfg.PathRemappings),
+				StreamSigningSecret: cfg.StreamSigningSecret,
+			},
+			Covers:  coverSvc,
+			Store:   st,
+			Config:  cfg,
+			Refresh: refresh,
+		})
+		httpSrv.SetHandler(srv.Handler())
+		return nil
+	}
+
+	// refresh re-reads the persisted app config and rebuilds. Admin handlers
+	// call this after a successful save so resolver / covers service pick up
+	// new path_remappings / library_root without requiring a re-upload.
+	refresh = func(ctx context.Context) error {
+		rebuildMu.Lock()
+		defer rebuildMu.Unlock()
+		st := storePtr.Load()
+		if st == nil {
+			return fmt.Errorf("store not initialised")
+		}
+		cfg, err := st.GetAppConfig(ctx)
+		if err != nil {
+			return fmt.Errorf("read app config: %w", err)
+		}
+		return rebuild(ctx, st, cfg)
+	}
 
 	rt := pluginrt.New(manifest, func(cfg pluginrt.Config) error {
 		ctx := context.Background()
@@ -72,20 +140,14 @@ func main() {
 		appCfg.DatabaseURL = cfg.DatabaseURL
 		cfg = appCfg
 
-		var bwClient *bookwarehouse.Client
-		if cfg.BaseURL != "" && cfg.APIKey != "" {
-			bwClient = bookwarehouse.NewClient(cfg.BaseURL, cfg.APIKey)
+		rebuildMu.Lock()
+		storePtr.Store(st)
+		err = rebuild(ctx, st, cfg)
+		rebuildMu.Unlock()
+		if err != nil {
+			p.Close()
+			return err
 		}
-		srv := server.New(server.Deps{
-			BookwarehouseClient: bwClient,
-			StreamConfig: stream.Config{
-				DirectFileAccess: cfg.DirectFileAccess,
-				PathRemappings:   toStreamRemappings(cfg.PathRemappings),
-			},
-			Store:  st,
-			Config: cfg,
-		})
-		httpSrv.SetHandler(srv.Handler())
 		if old := poolPtr.Swap(p); old != nil {
 			old.Close()
 		}
@@ -106,6 +168,17 @@ func toStreamRemappings(in []pluginrt.PathRemapping) []stream.PathRemapping {
 	out := make([]stream.PathRemapping, 0, len(in))
 	for _, item := range in {
 		out = append(out, stream.PathRemapping{
+			SourcePath: item.SourcePath,
+			TargetPath: item.TargetPath,
+		})
+	}
+	return out
+}
+
+func toLocalfsRemappings(in []pluginrt.PathRemapping) []localfs.Remapping {
+	out := make([]localfs.Remapping, 0, len(in))
+	for _, item := range in {
+		out = append(out, localfs.Remapping{
 			SourcePath: item.SourcePath,
 			TargetPath: item.TargetPath,
 		})

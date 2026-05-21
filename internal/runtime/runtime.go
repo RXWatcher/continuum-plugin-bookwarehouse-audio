@@ -21,12 +21,23 @@ import (
 
 // Config is the parsed plugin global config.
 type Config struct {
-	DatabaseURL      string          `json:"database_url,omitempty"`
-	BaseURL          string          `json:"base_url"`
-	APIKey           string          `json:"api_key,omitempty"`
-	DefaultCoverSize string          `json:"default_cover_size"`
-	DirectFileAccess bool            `json:"direct_file_access"`
-	PathRemappings   []PathRemapping `json:"path_remappings"`
+	DatabaseURL      string `json:"database_url,omitempty"`
+	BaseURL          string `json:"base_url"`
+	APIKey           string `json:"api_key,omitempty"`
+	DefaultCoverSize string `json:"default_cover_size"`
+	// LibraryRoot is the local filesystem root where BookWarehouse audiobook
+	// files are mounted inside this plugin runtime. Storage keys returned by
+	// BookWarehouse are joined to LibraryRoot to form local paths.
+	LibraryRoot string `json:"library_root,omitempty"`
+	// CoverCacheDir is the local directory where extracted/resized cover
+	// images are cached. Defaults to a plugin-managed temp dir if empty.
+	CoverCacheDir string `json:"cover_cache_dir,omitempty"`
+	// StreamSigningSecret is the HMAC key shared with the audiobooks portal
+	// for verifying signed media URLs (?token=<HS256 JWT>). Must match the
+	// portal's media_signing_secret. Base64-encoded; verification falls
+	// back to treating the raw string as bytes if base64 decoding fails.
+	StreamSigningSecret string          `json:"stream_signing_secret,omitempty"`
+	PathRemappings      []PathRemapping `json:"path_remappings"`
 }
 
 // PathRemapping converts paths returned by Book Warehouse into local mount
@@ -55,7 +66,9 @@ func (c Config) LogValue() slog.Value {
 		slog.String("base_url", c.BaseURL),
 		slog.String("api_key", mask(c.APIKey)),
 		slog.String("default_cover_size", c.DefaultCoverSize),
-		slog.Bool("direct_file_access", c.DirectFileAccess),
+		slog.String("library_root", c.LibraryRoot),
+		slog.String("cover_cache_dir", c.CoverCacheDir),
+		slog.String("stream_signing_secret", mask(c.StreamSigningSecret)),
 		slog.Int("path_remappings", len(c.PathRemappings)),
 	)
 }
@@ -98,8 +111,12 @@ func (s *Server) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*
 			cfg.APIKey = stringFromValue(m["value"], firstString(m))
 		case "default_cover_size":
 			cfg.DefaultCoverSize = stringFromValue(m["value"], firstString(m))
-		case "direct_file_access":
-			cfg.DirectFileAccess = boolFromValue(m["value"])
+		case "library_root":
+			cfg.LibraryRoot = stringFromValue(m["value"], firstString(m))
+		case "cover_cache_dir":
+			cfg.CoverCacheDir = stringFromValue(m["value"], firstString(m))
+		case "stream_signing_secret":
+			cfg.StreamSigningSecret = stringFromValue(m["value"], firstString(m))
 		case "path_remappings":
 			remaps, err := pathRemappingsFromValue(m["value"])
 			if err != nil {
@@ -119,8 +136,11 @@ func (s *Server) Configure(_ context.Context, req *pluginv1.ConfigureRequest) (*
 			return nil, fmt.Errorf("base_url: %w", err)
 		}
 	}
-	if !cfg.DirectFileAccess && len(cfg.PathRemappings) > 0 {
-		return nil, fmt.Errorf("path_remappings require direct_file_access")
+	if cfg.LibraryRoot != "" && !filepath.IsAbs(cfg.LibraryRoot) {
+		return nil, fmt.Errorf("library_root: must be an absolute path")
+	}
+	if cfg.CoverCacheDir != "" && !filepath.IsAbs(cfg.CoverCacheDir) {
+		return nil, fmt.Errorf("cover_cache_dir: must be an absolute path")
 	}
 	if s.onCfg != nil {
 		if err := s.onCfg(cfg); err != nil {
@@ -156,11 +176,6 @@ func firstString(m map[string]any) any {
 		}
 	}
 	return nil
-}
-
-func boolFromValue(v any) bool {
-	b, _ := v.(bool)
-	return b
 }
 
 func pathRemappingsFromValue(v any) ([]PathRemapping, error) {
