@@ -1,6 +1,6 @@
 {
   "plugin_id": "continuum.bookwarehouse-audio",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "checksum": "c722a76f234b583ae600cb81eaaa8fad1b15a1da2962a64f78be39989f4c1b40",
   "continuum_api_version": "v1",
   "category": "Books/Audiobooks",
