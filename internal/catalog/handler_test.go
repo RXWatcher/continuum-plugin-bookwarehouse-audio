@@ -9,8 +9,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/catalog"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/catalog"
 )
 
 func upstream(t *testing.T) *httptest.Server {

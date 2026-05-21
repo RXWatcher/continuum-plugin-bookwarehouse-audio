@@ -1,6 +1,6 @@
 package stream
 
-import "github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+import "github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
 
 // FindFileForTesting exposes findFile for the hardening test suite.
 func FindFileForTesting(files []bookwarehouse.File, idx int) (bookwarehouse.File, bool) {

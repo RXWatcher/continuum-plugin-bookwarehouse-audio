@@ -4,8 +4,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/catalog"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/catalog"
 )
 
 func TestToSummary_HappyPath(t *testing.T) {

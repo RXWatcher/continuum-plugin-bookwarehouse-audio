@@ -12,9 +12,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/runtime"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/store"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/runtime"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/store"
 )
 
 // Deps wires the server's collaborators. Optional fields are nil-tolerated by

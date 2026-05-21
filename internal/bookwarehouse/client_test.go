@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
 )
 
 // A broken/hostile upstream can return a huge error body. It must not be

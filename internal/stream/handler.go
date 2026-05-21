@@ -22,10 +22,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/catalog"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/localfs"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/tokens"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/catalog"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/localfs"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/tokens"
 )
 
 // PathRemapping rewrites an absolute BookWarehouse storage path prefix to a

@@ -25,8 +25,8 @@ import (
 	"github.com/dhowden/tag"
 	"golang.org/x/image/draw"
 
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/localfs"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/localfs"
 )
 
 // Size is the requested cover variant.

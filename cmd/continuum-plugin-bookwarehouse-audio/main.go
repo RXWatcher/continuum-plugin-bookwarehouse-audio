@@ -21,15 +21,15 @@ import (
 	publicmanifest "github.com/ContinuumApp/continuum-plugin-sdk/pkg/pluginsdk/manifest"
 	sdkruntime "github.com/ContinuumApp/continuum-plugin-sdk/pkg/pluginsdk/runtime"
 
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/covers"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/httproutes"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/localfs"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/migrate"
-	pluginrt "github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/runtime"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/server"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/store"
-	"github.com/ContinuumApp/continuum-plugin-bookwarehouse-audio/internal/stream"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/covers"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/httproutes"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/localfs"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/migrate"
+	pluginrt "github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/runtime"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/server"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/store"
+	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/stream"
 )
 
 //go:embed manifest.json
