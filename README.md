@@ -71,7 +71,8 @@ Verification failure short-circuits before any upstream call or filesystem acces
 
 ## Detailed docs
 
-- [Setup, debugging, and communication flows](docs/setup-debug-flows.md)
+- [Operator runbook (setup, flows, verification)](docs/setup-debug-flows.md)
+- [Debugging guide (upstream, tokens, remaps, covers)](docs/debugging.md)
 
 ## Build and release
 
