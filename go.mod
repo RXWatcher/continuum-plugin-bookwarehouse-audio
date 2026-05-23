@@ -1,4 +1,4 @@
-module github.com/RXWatcher/continuum-plugin-bookwarehouse-audio
+module github.com/RXWatcher/silo-plugin-bookwarehouse-audio
 
 go 1.26.0
 

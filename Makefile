@@ -1,9 +1,9 @@
-BINARY := continuum-plugin-bookwarehouse-audio
+BINARY := silo-plugin-bookwarehouse-audio
 GO ?= go
 
 .PHONY: build test clean
 build:
-	$(GO) build -o $(BINARY) ./cmd/continuum-plugin-bookwarehouse-audio
+	$(GO) build -o $(BINARY) ./cmd/silo-plugin-bookwarehouse-audio
 test:
 	$(GO) test ./...
 clean:

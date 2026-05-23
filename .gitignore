@@ -1,4 +1,4 @@
-/continuum-plugin-bookwarehouse-audio
+/silo-plugin-bookwarehouse-audio
 *.test
 *.out
 .envrc

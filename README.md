@@ -1,6 +1,6 @@
-# BookWarehouse Audio for Continuum
+# BookWarehouse Audio for Silo
 
-`continuum.bookwarehouse-audio` is an audiobook backend plugin that fronts an external BookWarehouse instance for the Continuum Audiobooks portal. It proxies BookWarehouse's catalog, browse, search, and detail data, serves cover artwork (with on-disk caching and embedded-tag extraction), and streams audio bytes directly from local mounts with HTTP Range support gated by HS256-signed media tokens minted by the portal.
+`silo.bookwarehouse-audio` is an audiobook backend plugin that fronts an external BookWarehouse instance for the Silo Audiobooks portal. It proxies BookWarehouse's catalog, browse, search, and detail data, serves cover artwork (with on-disk caching and embedded-tag extraction), and streams audio bytes directly from local mounts with HTTP Range support gated by HS256-signed media tokens minted by the portal.
 
 ## Category
 
@@ -11,16 +11,16 @@ Lives under **Books / Audiobooks** in the admin sidebar.
 | Type | ID | Purpose |
 | --- | --- | --- |
 | `http_routes.v1` | `backend` | Backend HTTP surface for catalog, covers, streaming, and the admin page. |
-| `audiobook_backend.v1` | `default` | Presents this BookWarehouse instance to `continuum.audiobooks` as a `library_source` (catalog yes, requests no, auto-monitoring no). |
+| `audiobook_backend.v1` | `default` | Presents this BookWarehouse instance to `silo.audiobooks` as a `library_source` (catalog yes, requests no, auto-monitoring no). |
 
 ## Dependencies
 
-- [`continuum-plugin-audiobooks`](https://github.com/RXWatcher/continuum-plugin-audiobooks) — the user-facing portal that mounts this plugin as an audiobook backend. The portal owns the UI and the Audiobookshelf-compatible surface; this plugin has no SPA of its own.
+- [`silo-plugin-audiobooks`](https://github.com/RXWatcher/silo-plugin-audiobooks) — the user-facing portal that mounts this plugin as an audiobook backend. The portal owns the UI and the Audiobookshelf-compatible surface; this plugin has no SPA of its own.
 - An external **BookWarehouse** instance reachable over HTTP(S).
 - A PostgreSQL database (DSN supplied via the `database_url` global config) for the small amount of state the plugin owns (app config snapshots).
-- Optional sibling: [`continuum-plugin-audiobook-requests`](https://github.com/RXWatcher/continuum-plugin-audiobook-requests) when request fulfillment is needed — this backend is catalog/stream only.
+- Optional sibling: [`silo-plugin-audiobook-requests`](https://github.com/RXWatcher/silo-plugin-audiobook-requests) when request fulfillment is needed — this backend is catalog/stream only.
 
-Host app: [`ContinuumApp/continuum`](https://github.com/ContinuumApp/continuum). SDK: [`ContinuumApp/continuum-plugin-sdk`](https://github.com/ContinuumApp/continuum-plugin-sdk).
+Host app: [`ContinuumApp/silo`](https://github.com/ContinuumApp/silo). SDK: [`ContinuumApp/continuum-plugin-sdk`](https://github.com/ContinuumApp/continuum-plugin-sdk).
 
 ## External services
 
@@ -81,4 +81,4 @@ make build
 make test
 ```
 
-CI builds linux-amd64 binaries on push to main via the reusable workflow in [RXWatcher/continuum-plugin-repository](https://github.com/RXWatcher/continuum-plugin-repository) and publishes them to the catalog at [`./binaries/`](https://github.com/RXWatcher/continuum-plugin-repository/tree/main/binaries).
+CI builds linux-amd64 binaries on push to main via the reusable workflow in [RXWatcher/silo-plugin-repository](https://github.com/RXWatcher/silo-plugin-repository) and publishes them to the catalog at [`./binaries/`](https://github.com/RXWatcher/silo-plugin-repository/tree/main/binaries).

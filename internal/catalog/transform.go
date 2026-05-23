@@ -5,7 +5,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/bookwarehouse"
 )
 
 // ToSummary converts upstream Book into the contract summary shape.

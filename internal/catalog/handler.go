@@ -9,10 +9,10 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/covers"
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/localfs"
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/tokens"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/covers"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/localfs"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/tokens"
 )
 
 // Handler exposes the audiobook_backend.v1 contract over HTTP.

@@ -25,8 +25,8 @@ import (
 	"github.com/dhowden/tag"
 	"golang.org/x/image/draw"
 
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/localfs"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/localfs"
 )
 
 // Size is the requested cover variant.
@@ -80,7 +80,7 @@ type Service struct {
 // missing.
 func NewService(client catalogClient, resolver *localfs.Resolver, cacheDir string) (*Service, error) {
 	if cacheDir == "" {
-		cacheDir = filepath.Join(os.TempDir(), "continuum-bw-audio-covers")
+		cacheDir = filepath.Join(os.TempDir(), "silo-bw-audio-covers")
 	}
 	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
 		return nil, fmt.Errorf("create cache dir: %w", err)

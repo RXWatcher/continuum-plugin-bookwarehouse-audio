@@ -1,6 +1,6 @@
 # Debugging Guide
 
-Symptom-first runbook for `continuum.bookwarehouse-audio`. Pair with the
+Symptom-first runbook for `silo.bookwarehouse-audio`. Pair with the
 admin page Diagnostics tab — it pings the database and makes a real
 upstream call. For setup and route maps, see
 [`setup-debug-flows.md`](./setup-debug-flows.md).
@@ -148,7 +148,7 @@ next request. To wipe completely:
 
 ```bash
 # Default location when cover_cache_dir is empty:
-rm -rf "$TMPDIR/continuum-bw-audio-covers"
+rm -rf "$TMPDIR/silo-bw-audio-covers"
 
 # Or the operator-configured location:
 rm -rf <cover_cache_dir>
@@ -245,7 +245,7 @@ failed.
 
 ```json
 {
-  "plugin_id": "continuum.bookwarehouse-audio",
+  "plugin_id": "silo.bookwarehouse-audio",
   "role": "audiobook_library_source",
   "configured": true|false,
   "catalog_routes": true|false,

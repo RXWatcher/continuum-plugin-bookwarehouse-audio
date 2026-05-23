@@ -14,9 +14,9 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/stream"
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/tokens"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/stream"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/tokens"
 )
 
 const testSecret = "test-secret-with-enough-entropy-32"

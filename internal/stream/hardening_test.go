@@ -11,8 +11,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/stream"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/stream"
 )
 
 // A symlink planted inside the configured library root (or an

@@ -7,8 +7,8 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/bookwarehouse"
-	"github.com/RXWatcher/continuum-plugin-bookwarehouse-audio/internal/catalog"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/bookwarehouse"
+	"github.com/RXWatcher/silo-plugin-bookwarehouse-audio/internal/catalog"
 )
 
 // The ?limit query parameter is attacker-controlled; it must be clamped before

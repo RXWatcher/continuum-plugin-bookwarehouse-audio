@@ -1,7 +1,7 @@
 # Operator Runbook
 
 Operator-focused setup, flows, and verification steps for
-`continuum.bookwarehouse-audio`. The README covers the *what*; this document
+`silo.bookwarehouse-audio`. The README covers the *what*; this document
 covers *how to bring it up and confirm it works*. Runtime debugging,
 authentication failures, and remap pitfalls live in
 [`debugging.md`](./debugging.md).
@@ -11,12 +11,12 @@ authentication failures, and remap pitfalls live in
 Two plugins cooperate to give end-users an audiobook portal:
 
 ```
-browser ── continuum.audiobooks (portal UI + Audiobookshelf API)
+browser ── silo.audiobooks (portal UI + Audiobookshelf API)
                     │
                     │ HTTP (plugin-to-plugin via host proxy)
                     │ Signed token minted with media_signing_secret
                     ▼
-            continuum.bookwarehouse-audio  ◀── this plugin
+            silo.bookwarehouse-audio  ◀── this plugin
                     │
                     ├── HTTP  ─► external BookWarehouse  (X-API-Key)
                     └── disk  ─► local mount with audiobook files
@@ -43,7 +43,7 @@ The portal owns the user-facing UX. This plugin owns:
    - **Library root** — absolute path inside *this plugin's* runtime where
      BookWarehouse-managed audio files appear. Must be absolute.
    - **Cover cache dir** — absolute path; if empty the plugin uses
-     `os.TempDir()/continuum-bw-audio-covers`. Operator-managed paths are
+     `os.TempDir()/silo-bw-audio-covers`. Operator-managed paths are
      preferred for persistence across container restarts.
    - **Path remappings** — only needed if BookWarehouse returns absolute
      storage paths that differ from this plugin's view of the same files.
@@ -146,7 +146,7 @@ and covers service so the new `library_root`, `cover_cache_dir`, and
   immediately.
 - The plugin schema is whichever schema the `database_url` DSN selects; the
   host doesn't manage it. Use a dedicated schema or role; the plugin does
-  not read core Continuum tables.
+  not read core Silo tables.
 
 ## What this plugin does *not* do
 
